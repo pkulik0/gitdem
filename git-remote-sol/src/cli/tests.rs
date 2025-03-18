@@ -1,5 +1,5 @@
-use crate::remote_helper::mock::Mock;
 use crate::cli::CLI;
+use crate::remote_helper::mock::Mock;
 use std::io::{BufReader, Cursor};
 
 #[test]
