@@ -1,0 +1,25 @@
+name: Test git-remote-sol
+
+on:
+  push:
+    paths:
+      - git-remote-sol/**
+  pull_request:
+    paths:
+      - git-remote-sol/**
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build
+      run: cargo build --verbose
+      working-directory: git-remote-sol
+    - name: Run tests
+      run: cargo test --verbose
+      working-directory: git-remote-sol
