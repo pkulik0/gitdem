@@ -6,7 +6,7 @@ use std::io::{BufRead, Write};
 mod tests;
 
 pub struct CLI<'a> {
-    remote_helper: &'a dyn RemoteHelper,
+    remote_helper: Box<dyn RemoteHelper>,
     stdin: &'a mut dyn BufRead,
     stdout: &'a mut dyn Write,
     stderr: &'a mut dyn Write,
@@ -14,7 +14,7 @@ pub struct CLI<'a> {
 
 impl<'a> CLI<'a> {
     pub fn new(
-        remote_helper: &'a dyn RemoteHelper,
+        remote_helper: Box<dyn RemoteHelper>,
         stdin: &'a mut dyn BufRead,
         stdout: &'a mut dyn Write,
         stderr: &'a mut dyn Write,
