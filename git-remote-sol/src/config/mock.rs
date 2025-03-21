@@ -16,12 +16,6 @@ impl MockConfig {
     }
 }
 
-impl MockConfig {
-    pub fn set(&mut self, key: String, value: String) {
-        self.values.insert(key, value);
-    }
-}
-
 impl Config for MockConfig {
     fn read(&self, key: &str) -> Result<Option<String>, Box<dyn Error>> {
         Ok(self.values.get(key).cloned())
