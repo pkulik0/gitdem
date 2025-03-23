@@ -1,0 +1,8 @@
+{
+  "name": "gitdem",
+  "private": true,
+  "workspaces": [
+    "on-chain",
+    "wallet-bridge"
+  ]
+}

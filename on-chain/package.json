@@ -1,5 +1,7 @@
 {
-  "license": "ISC",
+  "license": "AGPL-3.0-only",
+  "name": "@gitdem/on-chain",
+  "private": true,
   "scripts": {
     "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
     "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
