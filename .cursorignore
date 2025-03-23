@@ -1,6 +1,9 @@
 .vscode/
 .idea/
 
+node_modules/
+
 target/
+dist/
 
 .gitignore
