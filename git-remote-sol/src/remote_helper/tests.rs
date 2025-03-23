@@ -1,7 +1,7 @@
 use crate::config::mock::MockConfig;
 use std::collections::HashMap;
 
-use crate::remote_helper::solana::{Network, SolanaConfig, Wallet};
+use crate::remote_helper::solana::{Network, SolanaConfig, SolanaWallet};
 
 #[test]
 fn solana_config_network() {
@@ -64,7 +64,7 @@ fn solana_config_wallet() {
     let wallet = solana_config
         .get_wallet()
         .expect("failed to get wallet type");
-    assert_eq!(wallet, Wallet::Phantom);
+    assert_eq!(wallet, SolanaWallet::Phantom);
 
     // phantom
     let mock_config = MockConfig::new_with_values(HashMap::from([(
@@ -75,7 +75,7 @@ fn solana_config_wallet() {
     let wallet_type = solana_config
         .get_wallet()
         .expect("failed to get wallet type");
-    assert_eq!(wallet_type, Wallet::Phantom);
+    assert_eq!(wallet_type, SolanaWallet::Phantom);
 
     // keypair - path provided
     let mock_config = MockConfig::new_with_values(HashMap::from([
@@ -86,7 +86,7 @@ fn solana_config_wallet() {
     let wallet_type = solana_config
         .get_wallet()
         .expect("failed to get wallet type");
-    assert_eq!(wallet_type, Wallet::Keypair("/path/to/keypair".into()));
+    assert_eq!(wallet_type, SolanaWallet::Keypair("/path/to/keypair".into()));
 
     // keypair - path not provided
     let mock_config = MockConfig::new_with_values(HashMap::from([(
@@ -105,7 +105,7 @@ fn solana_config_wallet() {
     let wallet_type = solana_config
         .get_wallet()
         .expect("failed to get wallet type");
-    assert_eq!(wallet_type, Wallet::Environment);
+    assert_eq!(wallet_type, SolanaWallet::Environment);
 
     // invalid wallet type
     let mock_config = MockConfig::new_with_values(HashMap::from([(

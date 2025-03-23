@@ -5,12 +5,22 @@ use std::path::PathBuf;
 
 static CONFIG_PREFIX: &str = "solana";
 
+pub trait Wallet {
+    fn is_extension(&self) -> bool;
+}
+
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Wallet {
+pub enum SolanaWallet {
   Keypair(PathBuf),
   Environment,
   Phantom,
+}
+
+impl Wallet for SolanaWallet {
+    fn is_extension(&self) -> bool {
+        matches!(self, SolanaWallet::Phantom)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -49,18 +59,18 @@ impl SolanaConfig {
         }
     }
 
-    pub fn get_wallet(&self) -> Result<Wallet, Box<dyn Error>> {
+    pub fn get_wallet(&self) -> Result<SolanaWallet, Box<dyn Error>> {
         match self.config.read(format!("{}.wallet", CONFIG_PREFIX).as_str())? {
             Some(wallet_type) => match wallet_type.as_str() {
                 "keypair" => match self.config.read(format!("{}.keypair", CONFIG_PREFIX).as_str())? {
-                    Some(keypair_path) => Ok(Wallet::Keypair(PathBuf::from(keypair_path))),
+                    Some(keypair_path) => Ok(SolanaWallet::Keypair(PathBuf::from(keypair_path))),
                     None => Err("Keypair path not found".into()),
                 },
-                "environment" => Ok(Wallet::Environment),
-                "phantom" => Ok(Wallet::Phantom),
+                "environment" => Ok(SolanaWallet::Environment),
+                "phantom" => Ok(SolanaWallet::Phantom),
                 _ => Err("Invalid wallet type".into()),
             },
-            None => Ok(Wallet::Phantom),
+            None => Ok(SolanaWallet::Phantom),
         }
     }
 }
