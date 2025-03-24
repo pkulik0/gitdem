@@ -4,9 +4,11 @@ on:
   push:
     paths:
       - git-remote-sol/**
+      - wallet-bridge/**
   pull_request:
     paths:
       - git-remote-sol/**
+      - wallet-bridge/**
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,6 +19,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
     - name: Build
       run: cargo build --verbose
       working-directory: git-remote-sol
