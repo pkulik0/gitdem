@@ -6,6 +6,9 @@ use browser::Browser;
 mod background;
 use background::Background;
 
+#[cfg(test)]
+mod tests;
+
 pub struct Transaction;
 
 pub trait Executor {
@@ -14,7 +17,7 @@ pub trait Executor {
 
 pub fn create_executor(wallet: &dyn Wallet) -> Box<dyn Executor> {
     match wallet.is_extension() {
-        true => Box::new(Browser::new()),
+        true => Box::new(Browser::new().unwrap()), // TODO: handle error
         false => Box::new(Background::new()),
     }
 }
