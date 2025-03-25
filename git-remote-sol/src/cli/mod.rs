@@ -40,7 +40,7 @@ impl<'a> CLI<'a> {
                 debug!("returning capabilities");
                 writeln!(
                     self.stdout,
-                    "{}",
+                    "{}\n",
                     self.remote_helper.capabilities().join(",")
                 )?;
             }
