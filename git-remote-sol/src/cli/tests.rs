@@ -9,7 +9,7 @@ fn capabilities() {
     let mut stderr = Vec::new();
 
     let remote_helper = Mock::new();
-    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr);
+    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr, "origin".to_string(), "sol://test".to_string());
 
     cli.run().expect("failed to run cli");
     assert_eq!(stdout, b"fetch,push\n");

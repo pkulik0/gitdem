@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+flexi_logger = "0.29.8"
+log = "0.4.27"
 mime_guess = "2.0.5"
 open = "5.3.2"
 rust-embed = "8.6.0"

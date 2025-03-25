@@ -1,7 +1,7 @@
 use crate::remote_helper::RemoteHelper;
 use std::error::Error;
 use std::io::{BufRead, Write};
-
+use log::{debug, error, info};
 #[cfg(test)]
 mod tests;
 
@@ -10,6 +10,8 @@ pub struct CLI<'a> {
     stdin: &'a mut dyn BufRead,
     stdout: &'a mut dyn Write,
     stderr: &'a mut dyn Write,
+    remote_name: String,
+    remote_url: String,
 }
 
 impl<'a> CLI<'a> {
@@ -18,25 +20,37 @@ impl<'a> CLI<'a> {
         stdin: &'a mut dyn BufRead,
         stdout: &'a mut dyn Write,
         stderr: &'a mut dyn Write,
+        remote_name: String,
+        remote_url: String,
     ) -> Self {
+        info!("remote: {}, url: {}", remote_name, remote_url);
         Self {
             remote_helper,
             stdin,
             stdout,
             stderr,
+            remote_name,
+            remote_url,
         }
     }
 
     fn handle_command(&mut self, command: &str) -> Result<(), Box<dyn Error>> {
         match command {
             "capabilities" => {
+                debug!("returning capabilities");
                 writeln!(
                     self.stdout,
                     "{}",
                     self.remote_helper.capabilities().join(",")
                 )?;
             }
+            "fetch" => {
+                debug!("fetching");
+                writeln!(self.stderr, "failed to fetch\n")?;
+                std::process::exit(1);
+            }
             _ => {
+                error!("Unknown command: {}", command);
                 return Err(format!("Unknown command: {}", command).into());
             }
         }
