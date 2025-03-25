@@ -2,7 +2,7 @@ use std::error::Error;
 use super::solana::Wallet;
 
 mod browser;
-use browser::Browser;
+use browser::{Browser, BrowserLinkOpener};
 mod background;
 use background::Background;
 
@@ -17,7 +17,7 @@ pub trait Executor {
 
 pub fn create_executor(wallet: &dyn Wallet) -> Box<dyn Executor> {
     match wallet.is_extension() {
-        true => Box::new(Browser::new().unwrap()), // TODO: handle error
+        true => Box::new(Browser::new(Box::new(BrowserLinkOpener)).unwrap()), // TODO: handle error
         false => Box::new(Background::new()),
     }
 }
