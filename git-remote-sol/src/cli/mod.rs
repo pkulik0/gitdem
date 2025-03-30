@@ -44,14 +44,19 @@ impl<'a> CLI<'a> {
                     self.remote_helper.capabilities().join(",")
                 )?;
             }
+            "list" => {
+                debug!("listing refs");
+                let refs = self.remote_helper.list()?;
+                for reference in refs {
+                    writeln!(self.stdout, "{}", reference)?;
+                }
+                writeln!(self.stdout)?; // needs a new line after the list
+            }
             "fetch" => {
                 debug!("fetching");
-                writeln!(self.stderr, "failed to fetch\n")?;
-                std::process::exit(1);
             }
             _ => {
-                error!("Unknown command: {}", command);
-                return Err(format!("Unknown command: {}", command).into());
+                return Err(format!("unknown command: \"{}\"", command).into());
             }
         }
         Ok(())
@@ -61,19 +66,13 @@ impl<'a> CLI<'a> {
         let mut command = String::new();
         loop {
             match self.stdin.read_line(&mut command) {
-                Ok(0) => {
-                    return Ok(());
-                }
-                Ok(_) => {
-                    self.handle_command(command.trim())?;
+                Ok(_) => match command.as_str() {
+                    "\n" => return Ok(()), // used by git to signal end of input
+                    _ => self.handle_command(command.trim())?,
                 }
                 Err(e) => match e.kind() {
-                    std::io::ErrorKind::BrokenPipe => {
-                        return Ok(());
-                    }
-                    _ => {
-                        return Err(format!("Error reading command: {}", e).into());
-                    }
+                    std::io::ErrorKind::BrokenPipe => return Ok(()),
+                    _ => return Err(format!("failed to read command: {}", e).into())
                 },
             }
             command.clear();

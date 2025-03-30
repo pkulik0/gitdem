@@ -1,4 +1,4 @@
-use crate::remote_helper::RemoteHelper;
+use crate::remote_helper::{Reference, RemoteHelper};
 use crate::config::Config;
 use std::error::Error;
 use std::path::PathBuf;
@@ -89,4 +89,8 @@ impl RemoteHelper for Solana {
     fn capabilities(&self) -> Vec<&'static str> {
         vec!["fetch", "push"]
     }
+
+    fn list(&self) -> Result<Vec<Reference>, Box<dyn Error>> {
+        Ok(vec![])
+    }   
 }

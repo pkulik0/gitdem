@@ -2,7 +2,7 @@ use std::error::Error;
 
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
+#[cfg(any(test, feature = "mock"))]
 pub mod mock;
 
 pub mod git;
