@@ -4,7 +4,7 @@ fn get_path_and_prepare() -> String {
   // 1. Ensure the binary is compiled
   let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set");
   let build_cmd = Command::new("cargo")
-    .args(&["build", "--release"])
+    .args(&["build", "--release", "--features", "mock"])
     .current_dir(&manifest_dir)
     .output()
     .expect("failed to build");
