@@ -7,6 +7,7 @@ use super::Transaction;
 use std::error::Error;
 use std::net::SocketAddr;
 use std::str::FromStr;
+use log::trace;
 
 pub trait LinkOpener {
     fn open(&self, url: &str) -> Result<(), Box<dyn Error>>;
@@ -65,9 +66,14 @@ impl Executor for Browser {
     fn execute(&self, transaction: Transaction) -> Result<(), Box<dyn Error>> {
         self.link_opener.open(&format!("http://{}", self.addr))?;
         for request in self.server.incoming_requests() {
+            trace!("browser executor request: {:?}", request.url());
             match request.url() {
                 "/done" => {
                    request.respond(tiny_http::Response::from_string("done"))?;
+                   break;
+                },
+                "/favicon.ico" => {
+                    request.respond(tiny_http::Response::empty(404))?;
                 },
                 _ => {
                     let (data, mime) = BridgeAssets::from_url(request.url())?;

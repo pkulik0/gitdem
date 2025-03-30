@@ -12,5 +12,6 @@ flexi_logger = "0.29.8"
 log = "0.4.27"
 mime_guess = "2.0.5"
 open = "5.3.2"
+reqwest = { version = "0.12.15", features = ["blocking"] }
 rust-embed = "8.6.0"
 tiny_http = "0.12.0"
