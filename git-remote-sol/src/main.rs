@@ -6,6 +6,9 @@ use cli::CLI;
 use config::git::GitConfig;
 use remote_helper::solana::Solana;
 
+#[cfg(test)]
+mod tests;
+
 #[cfg(feature = "mock")]
 use config::mock::MockConfig;
 #[cfg(feature = "mock")]

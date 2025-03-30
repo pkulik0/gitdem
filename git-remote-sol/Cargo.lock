@@ -369,6 +369,7 @@ dependencies = [
  "open",
  "reqwest",
  "rust-embed",
+ "tempfile",
  "tiny_http",
 ]
 
