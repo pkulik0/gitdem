@@ -15,3 +15,7 @@ pub trait RemoteHelper {
     fn capabilities(&self) -> Vec<&'static str>;
     fn list(&self) -> Result<Vec<Reference>, Box<dyn Error>>;
 }
+
+pub trait Wallet {
+    fn is_extension(&self) -> bool;
+}

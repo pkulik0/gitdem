@@ -1,10 +1,10 @@
 use std::error::Error;
-use super::solana::Wallet;
 
 mod browser;
 use browser::{Browser, BrowserLinkOpener};
 mod background;
 use background::Background;
+use super::Wallet;
 
 #[cfg(test)]
 mod tests;

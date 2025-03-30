@@ -1,7 +1,5 @@
-use crate::config::mock::MockConfig;
+use crate::{config::mock::MockConfig, remote_helper::solana::config::{Network, SolanaConfig, SolanaWallet}};
 use std::collections::HashMap;
-
-use crate::remote_helper::solana::{Network, SolanaConfig, SolanaWallet};
 
 #[test]
 fn solana_config_network() {

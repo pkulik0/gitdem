@@ -1,14 +1,10 @@
-use crate::remote_helper::{Reference, RemoteHelper};
-use crate::config::Config;
-use std::error::Error;
 use std::path::PathBuf;
+use std::error::Error;
+
+use crate::remote_helper::Wallet;
+use crate::config::Config;
 
 static CONFIG_PREFIX: &str = "solana";
-
-pub trait Wallet {
-    fn is_extension(&self) -> bool;
-}
-
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SolanaWallet {
@@ -75,22 +71,3 @@ impl SolanaConfig {
     }
 }
 
-pub struct Solana {
-    config: SolanaConfig,
-}
-
-impl Solana {
-    pub fn new(config: Box<dyn Config>) -> Self {
-        Self { config: SolanaConfig::new(config) }
-    }
-}
-
-impl RemoteHelper for Solana {
-    fn capabilities(&self) -> Vec<&'static str> {
-        vec!["fetch", "push"]
-    }
-
-    fn list(&self) -> Result<Vec<Reference>, Box<dyn Error>> {
-        Ok(vec![])
-    }   
-}

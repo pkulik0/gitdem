@@ -4,7 +4,6 @@ mod remote_helper;
 
 use cli::CLI;
 use config::git::GitConfig;
-use remote_helper::solana::Solana;
 
 #[cfg(test)]
 mod tests;
@@ -18,6 +17,7 @@ use remote_helper::mock::Mock;
 
 use flexi_logger::{FileSpec, Logger, WriteMode};
 use log::{error, info};
+use remote_helper::solana::helper::Solana;
 use std::io;
 use std::io::Write;
 
