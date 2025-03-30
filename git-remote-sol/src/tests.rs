@@ -25,8 +25,9 @@ fn test_integration_clone() {
     let temp_dir_path = temp_dir.path().display().to_string();
 
     let repo_name = "test-repo";
+    let remote_url = format!("sol://{}", repo_name);
     let cmd = Command::new("git")
-      .args(&["clone", &format!("sol://{}", repo_name)])
+      .args(&["clone", remote_url.as_str()])
       .env("PATH", path)
       .current_dir(temp_dir_path.clone())
       .output() 
@@ -35,4 +36,8 @@ fn test_integration_clone() {
 
     let repo_path = std::path::Path::new(&temp_dir_path).join(repo_name);
     assert!(repo_path.exists());
+
+    let repo = git2::Repository::open(repo_path).expect("failed to open repo");
+    let remotes = repo.find_remote("origin").expect("failed to find origin remote");
+    assert_eq!(remotes.url(), Some(remote_url.as_str()));
 }

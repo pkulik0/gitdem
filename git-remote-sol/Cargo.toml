@@ -9,6 +9,7 @@ mock = []
 
 [dependencies]
 flexi_logger = "0.29.8"
+git2 = "0.20.1"
 log = "0.4.27"
 mime_guess = "2.0.5"
 open = "5.3.2"
