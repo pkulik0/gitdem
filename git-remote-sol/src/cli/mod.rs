@@ -13,8 +13,6 @@ pub struct CLI<'a> {
     stdin: &'a mut dyn BufRead,
     stdout: &'a mut dyn Write,
     stderr: &'a mut dyn Write,
-    remote_name: String,
-    remote_url: String,
 }
 
 impl<'a> CLI<'a> {
@@ -23,17 +21,12 @@ impl<'a> CLI<'a> {
         stdin: &'a mut dyn BufRead,
         stdout: &'a mut dyn Write,
         stderr: &'a mut dyn Write,
-        remote_name: String,
-        remote_url: String,
     ) -> Self {
-        info!("remote: {}, url: {}", remote_name, remote_url);
         Self {
             remote_helper,
             stdin,
             stdout,
             stderr,
-            remote_name,
-            remote_url,
         }
     }
 

@@ -1,12 +1,15 @@
 use crate::config::Config;
 use std::error::Error;
 use std::process::Command;
+use std::path::PathBuf;
 
-pub struct GitConfig {}
+pub struct GitConfig {
+  dir: PathBuf,
+}
 
 impl GitConfig {
-  pub fn new() -> Self {
-    Self{}
+  pub fn new(dir: PathBuf) -> Self {
+    Self{dir}
   }
 }
 
@@ -16,6 +19,7 @@ impl Config for GitConfig {
       .arg("config")
       .arg("--get")
       .arg(key)
+      .current_dir(self.dir.clone())
       .output()?;
 
     let value = String::from_utf8(cmd.stdout)?;

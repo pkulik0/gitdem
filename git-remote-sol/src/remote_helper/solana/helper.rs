@@ -1,23 +1,28 @@
 use crate::config::Config;
 use crate::remote_helper::solana::config::SolanaConfig;
-use crate::remote_helper::{RemoteHelper, RemoteHelperError, Reference};
+use crate::remote_helper::{Reference, RemoteHelper, RemoteHelperError};
+use crate::args::Args;
 
 pub struct Solana {
-  config: SolanaConfig,
+    args: Args,
+    config: SolanaConfig,
 }
 
 impl Solana {
-  pub fn new(config: Box<dyn Config>) -> Self {
-      Self { config: SolanaConfig::new(config) }
-  }
+    pub fn new(args: Args, config: Box<dyn Config>) -> Self {
+        Self {
+            args,
+            config: SolanaConfig::new(config),
+        }
+    }
 }
 
 impl RemoteHelper for Solana {
-  fn capabilities(&self) -> Vec<&'static str> {
-      vec!["*fetch", "*push"]
-  }
+    fn capabilities(&self) -> Vec<&'static str> {
+        vec!["*fetch", "*push"]
+    }
 
-  fn list(&self) -> Result<Vec<Reference>, RemoteHelperError> {
-      Ok(vec![])
-  }   
+    fn list(&self) -> Result<Vec<Reference>, RemoteHelperError> {
+        Ok(vec![])
+    }
 }

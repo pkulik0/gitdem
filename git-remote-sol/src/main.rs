@@ -1,12 +1,13 @@
+mod args;
 mod cli;
 mod config;
 mod remote_helper;
-
-use cli::CLI;
-use config::git::GitConfig;
-
 #[cfg(test)]
 mod tests;
+
+use args::Args;
+use cli::CLI;
+use config::git::GitConfig;
 
 #[cfg(feature = "mock")]
 use config::mock::MockConfig;
@@ -16,15 +17,16 @@ use remote_helper::mock::Mock;
 use remote_helper::reference::{Keyword, Reference, Value};
 
 use flexi_logger::{FileSpec, Logger, WriteMode};
-use log::{debug, error, info, warn};
+use log::{debug, error, warn};
 use remote_helper::solana::helper::Solana;
+use std::error::Error;
 use std::io;
-use std::io::Write;
-
+use std::path::PathBuf;
 // Remote helpers are run by git
 // Use this environment variable to wait for a debugger to attach
 #[cfg(debug_assertions)]
-static DEBUG_ENV_VAR: &str = "DEBUG_WAIT";
+const DEBUG_ENV_VAR: &str = "DEBUG_WAIT";
+const GIT_DIR_ENV_VAR: &str = "GIT_DIR";
 
 fn setup_panic_hook() {
     let default_hook = std::panic::take_hook();
@@ -42,13 +44,48 @@ fn setup_panic_hook() {
     }));
 }
 
+#[cfg(not(feature = "mock"))]
+fn construct_remote_helper(args: Args) -> Solana {
+    debug!("using solana remote helper");
+    let config = Box::new(GitConfig::new(args.directory().clone()));
+    Solana::new(args, config)
+}
+
+#[cfg(feature = "mock")]
+fn construct_remote_helper(_: Args) -> Mock {
+    warn!("using mock remote helper");
+    Mock::new_with_refs(vec![
+        Reference {
+            value: Value::KeyValue(Keyword::ObjectFormat("sha1".to_string())),
+            name: "".to_string(),
+            attributes: vec![],
+        },
+        Reference {
+            value: Value::Hash("4e1243bd22c66e76c2ba9eddc1f91394e57f9f83".to_string()),
+            name: "refs/heads/main".to_string(),
+            attributes: vec![],
+        },
+        Reference {
+            value: Value::SymRef("refs/heads/main".to_string()),
+            name: "HEAD".to_string(),
+            attributes: vec![],
+        },
+    ])
+}
+
+fn exit_with_error(msg: &str, e: Box<dyn Error>) -> ! {
+    error!("{}: {}", msg, e);
+    eprintln!("remote: {}", e);
+    std::process::exit(1);
+}
+
 fn main() {
     let _logger = Logger::try_with_str("trace")
         .expect("failed to create logger")
         .log_to_file(FileSpec::default())
         .write_mode(WriteMode::Direct)
         .start()
-        .expect("failed to start logger");
+        .unwrap_or_else(|e| exit_with_error("failed to start logger", e.into()));
 
     setup_panic_hook();
 
@@ -62,37 +99,18 @@ fn main() {
     let mut stdout = io::stdout();
     let mut stderr = io::stderr();
 
-    let remote_name = std::env::args().nth(1).unwrap_or_default();
-    let remote_url = std::env::args().nth(2).unwrap_or_default();
+    let git_dir = match std::env::var(GIT_DIR_ENV_VAR) {
+        Ok(dir) => PathBuf::from(dir),
+        Err(_) => PathBuf::from("."),
+    };
+    let cmd_args = std::env::args().collect::<Vec<String>>();
+    let args = Args::parse(&cmd_args, git_dir)
+        .unwrap_or_else(|e| exit_with_error("failed to collect args", e.into()));
+    debug!("running with {:?}", args);
 
-    #[cfg(feature = "mock")]
-    warn!("using mock remote helper");
+    let remote_helper = Box::new(construct_remote_helper(args));
 
-    #[cfg(not(feature = "mock"))]
-    let config = Box::new(GitConfig::new());
-    #[cfg(feature = "mock")]
-    let config = Box::new(MockConfig::new());
-
-    #[cfg(not(feature = "mock"))]
-    let remote_helper = Box::new(Solana::new(config));
-    #[cfg(feature = "mock")]
-    let remote_helper = Box::new(Mock::new());
-    
-    let mut cli = CLI::new(
-        remote_helper,
-        &mut stdin,
-        &mut stdout,
-        &mut stderr,
-        remote_name,
-        remote_url,
-    );
-
-    match cli.run() {
-        Ok(_) => {}
-        Err(e) => {
-            error!("failed to run cli: {}", e);
-            writeln!(stderr, "remote-sol: {}", e).expect("failed to write to stderr");
-            std::process::exit(1);
-        }
-    }
+    let mut cli = CLI::new(remote_helper, &mut stdin, &mut stdout, &mut stderr);
+    cli.run()
+        .unwrap_or_else(|e| exit_with_error("failed to run cli", e.into()));
 }

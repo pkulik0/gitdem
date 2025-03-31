@@ -10,7 +10,7 @@ fn capabilities() {
     let mut stderr = Vec::new();
 
     let remote_helper = Mock::new();
-    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr, "origin".to_string(), "sol://test".to_string());
+    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr);
 
     cli.run().expect("failed to run cli");
     assert_eq!(stdout, b"*fetch\n*push\n\n");
@@ -25,7 +25,7 @@ fn list() {
     let mut stderr = Vec::new();
 
     let remote_helper = Mock::new();
-    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr, "origin".to_string(), "sol://test".to_string());
+    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr);
     cli.run().expect("failed to run cli");
     assert_eq!(stdout, b"\n"); // new line indicates the end of the list
     assert_eq!(stderr, b"");
@@ -53,7 +53,7 @@ fn list() {
         },
     ];
     let remote_helper = Mock::new_with_refs(refs.clone());
-    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr, "origin".to_string(), "sol://test".to_string());
+    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr);
     cli.run().expect("failed to run cli");
     assert_eq!(stdout, format!("{}\n{}\n{}\n\n", refs[0], refs[1], refs[2]).as_bytes());
     assert_eq!(stderr, b"");
