@@ -5,13 +5,7 @@ pub struct Mock {
 }
 
 impl Mock {
-    pub fn new() -> Self {
-        Self {
-            refs: vec![],
-        }
-    }
-
-    pub fn new_with_refs(refs: Vec<Reference>) -> Self {
+    pub fn new(refs: Vec<Reference>) -> Self {
         Self { refs }
     }
 }
@@ -23,5 +17,9 @@ impl RemoteHelper for Mock {
 
     fn list(&self) -> Result<Vec<Reference>, RemoteHelperError> {
         Ok(self.refs.clone())
+    }
+
+    fn fetch(&self, refs: &[Reference]) -> Result<(), RemoteHelperError> {
+        Ok(())
     }
 }

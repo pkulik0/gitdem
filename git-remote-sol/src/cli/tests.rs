@@ -9,7 +9,7 @@ fn capabilities() {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
 
-    let remote_helper = Mock::new();
+    let remote_helper = Mock::new(vec![]);
     let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr);
 
     cli.run().expect("failed to run cli");
@@ -24,7 +24,7 @@ fn list() {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
 
-    let remote_helper = Mock::new();
+    let remote_helper = Mock::new(vec![]);
     let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr);
     cli.run().expect("failed to run cli");
     assert_eq!(stdout, b"\n"); // new line indicates the end of the list
@@ -52,7 +52,7 @@ fn list() {
             attributes: vec![],
         },
     ];
-    let remote_helper = Mock::new_with_refs(refs.clone());
+    let remote_helper = Mock::new(refs.clone());
     let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr);
     cli.run().expect("failed to run cli");
     assert_eq!(stdout, format!("{}\n{}\n{}\n\n", refs[0], refs[1], refs[2]).as_bytes());

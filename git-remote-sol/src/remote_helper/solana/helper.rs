@@ -25,4 +25,8 @@ impl RemoteHelper for Solana {
     fn list(&self) -> Result<Vec<Reference>, RemoteHelperError> {
         Ok(vec![])
     }
+
+    fn fetch(&self, refs: &[Reference]) -> Result<(), RemoteHelperError> {
+        Ok(())
+    }
 }
