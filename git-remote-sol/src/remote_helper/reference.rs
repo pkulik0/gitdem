@@ -1,7 +1,7 @@
 use std::fmt;
 
 // gitremote-helpers.adoc (line 438)
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Attribute {
     Unchanged,
 }
@@ -15,7 +15,7 @@ impl fmt::Display for Attribute {
 }
 
 // gitremote-helpers.adoc (line 449)
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Keyword {
     ObjectFormat(String),
 }
@@ -29,7 +29,7 @@ impl fmt::Display for Keyword {
 }
 
 // gitremote-helpers.adoc (line 265)
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Value {
     Hash(String),
     SymRef(String),
@@ -49,7 +49,7 @@ impl fmt::Display for Value {
 }
 
 // gitremote-helpers.adoc (line 264)
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Reference {
     pub value: Value,
     pub name: String,
@@ -66,5 +66,15 @@ impl fmt::Display for Reference {
             write!(f, " {}", attr)?;
         }
         Ok(())
+    }
+}
+
+impl Reference {
+    pub fn new_with_hash(name: String, hash: String) -> Self {
+        Self {
+            value: Value::Hash(hash),
+            name,
+            attributes: vec![],
+        }
     }
 }

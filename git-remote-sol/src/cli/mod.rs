@@ -1,4 +1,4 @@
-use crate::remote_helper::RemoteHelper;
+use crate::remote_helper::{RemoteHelper, reference::Reference};
 use log::{debug, info};
 use std::io::{BufRead, Write};
 
@@ -8,11 +8,19 @@ mod tests;
 
 use error::CLIError;
 
+enum State {
+    None,
+    ListingFetches(Vec<Reference>),
+}
+
 pub struct CLI<'a> {
     remote_helper: Box<dyn RemoteHelper>,
+
     stdin: &'a mut dyn BufRead,
     stdout: &'a mut dyn Write,
     stderr: &'a mut dyn Write,
+
+    state: State,
 }
 
 impl<'a> CLI<'a> {
@@ -27,16 +35,29 @@ impl<'a> CLI<'a> {
             stdin,
             stdout,
             stderr,
+            state: State::None,
         }
     }
 
     fn handle_line(&mut self, line: String) -> Result<(), CLIError> {
+        if line == "\n" {
+            match &self.state {
+                State::None => return Err(CLIError::EndOfInput),
+                State::ListingFetches(refs) => {
+                    // TODO: Implement
+                    info!("fetch: {:?}", refs);
+                    self.state = State::None;
+                    return Ok(());
+                }
+            }
+        }
+
         let parts = line.split_whitespace().collect::<Vec<&str>>();
         if parts.len() == 0 {
             return Err(CLIError::MalformedLine(line));
         }
 
-        let command = parts[0].trim();
+        let command = parts[0];
         let args = parts[1..].to_vec();
         debug!("command: {:?}, args: {:?}", command, args);
 
@@ -63,17 +84,33 @@ impl<'a> CLI<'a> {
                     return Err(CLIError::MalformedLine(line));
                 }
 
-                let hash = args[0];
-                let ref_name = args[1];
-                debug!("fetch: {} {}", hash, ref_name);
+                let hash = args[0].to_string();
+                let ref_name = args[1].to_string();
+                let reference = Reference::new_with_hash(ref_name, hash);
+
+                match &mut self.state {
+                    State::None => {
+                        debug!("new fetch list with: {:?}", reference);
+                        self.state = State::ListingFetches(vec![reference]);
+                    }
+                    State::ListingFetches(refs) => {
+                        debug!("appending fetch to list: {:?}", reference);
+                        refs.push(reference);
+                    }
+                }
             }
-            _ => {
-                return Err(CLIError::UnknownCommand(command.to_string()));
-            }
+            _ => return Err(CLIError::UnknownCommand(line)),
         }
 
-        writeln!(self.stdout, "{}", response)?;
-        info!("{}:\n{}", command, response);
+        match &self.state {
+            State::None => {
+                writeln!(self.stdout, "{}", response)?;
+                if !response.is_empty() {
+                    info!("{}:\n{}", command, response);
+                }
+            }
+            _ => {}
+        }
 
         Ok(())
     }
@@ -83,9 +120,10 @@ impl<'a> CLI<'a> {
             let mut line = String::new();
             match self.stdin.read_line(&mut line) {
                 Ok(0) => return Ok(()),
-                Ok(_) => match line.as_str() {
-                    "\n" => return Ok(()),
-                    _ => self.handle_line(line)?,
+                Ok(_) => match self.handle_line(line) {
+                    Err(CLIError::EndOfInput) => return Ok(()),
+                    Err(e) => return Err(e),
+                    Ok(_) => {},
                 },
                 Err(e) => match e.kind() {
                     std::io::ErrorKind::BrokenPipe => return Ok(()),

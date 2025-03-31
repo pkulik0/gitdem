@@ -8,6 +8,7 @@ pub enum CLIError {
     Command(RemoteHelperError),
     UnknownCommand(String),
     InputOutput(std::io::Error),
+    EndOfInput,
 }
 
 impl Error for CLIError {}
@@ -19,6 +20,7 @@ impl std::fmt::Display for CLIError {
             CLIError::Command(e) => write!(f, "command error: {}", e),
             CLIError::UnknownCommand(command) => write!(f, "unknown command: {:?}", command),
             CLIError::InputOutput(e) => write!(f, "input/output error: {}", e),
+            CLIError::EndOfInput => write!(f, "end of input"),
         }
     }
 }
