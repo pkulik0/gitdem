@@ -54,7 +54,7 @@ impl<'a> CLI<'a> {
                     return Err(CLIError::MalformedLine(line));
                 }
 
-                response = format!("{}\n", self.remote_helper.capabilities().join(","));
+                response = format!("{}\n", self.remote_helper.capabilities().join("\n"));
             }
             "list" => {
                 if args.len() != 0 {

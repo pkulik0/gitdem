@@ -18,7 +18,7 @@ impl Mock {
 
 impl RemoteHelper for Mock {
     fn capabilities(&self) -> Vec<&'static str> {
-        vec!["fetch", "push"]
+        vec!["*fetch", "*push"]
     }
 
     fn list(&self) -> Result<Vec<Reference>, RemoteHelperError> {

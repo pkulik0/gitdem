@@ -13,7 +13,7 @@ fn capabilities() {
     let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr, "origin".to_string(), "sol://test".to_string());
 
     cli.run().expect("failed to run cli");
-    assert_eq!(stdout, b"fetch,push\n\n");
+    assert_eq!(stdout, b"*fetch\n*push\n\n");
     assert_eq!(stderr, b"");
 }
 
