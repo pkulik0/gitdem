@@ -1,6 +1,6 @@
 use std::fmt;
 
-// https://git-scm.com/docs/gitremote-helpers#_ref_list_attributes
+// gitremote-helpers.adoc (line 438)
 #[derive(Clone)]
 pub enum Attribute {
     Unchanged,
@@ -14,7 +14,7 @@ impl fmt::Display for Attribute {
     }
 }
 
-// https://git-scm.com/docs/gitremote-helpers#_ref_list_keywords
+// gitremote-helpers.adoc (line 449)
 #[derive(Clone)]
 pub enum Keyword {
     ObjectFormat(String),
@@ -28,6 +28,7 @@ impl fmt::Display for Keyword {
     }
 }
 
+// gitremote-helpers.adoc (line 265)
 #[derive(Clone)]
 pub enum Value {
     Hash(String),
@@ -47,6 +48,7 @@ impl fmt::Display for Value {
     }
 }
 
+// gitremote-helpers.adoc (line 264)
 #[derive(Clone)]
 pub struct Reference {
     pub value: Value,
