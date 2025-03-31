@@ -39,35 +39,49 @@ impl<'a> CLI<'a> {
 
     fn handle_line(&mut self, line: String) -> Result<(), CLIError> {
         let parts = line.split_whitespace().collect::<Vec<&str>>();
+        if parts.len() == 0 {
+            return Err(CLIError::MalformedLine(line));
+        }
+
         let command = parts[0].trim();
         let args = parts[1..].to_vec();
+        debug!("command: {:?}, args: {:?}", command, args);
 
+        let mut response = String::new();
         match command {
             "capabilities" => {
                 if args.len() != 0 {
                     return Err(CLIError::MalformedLine(line));
                 }
 
-                let response = format!("{}\n", self.remote_helper.capabilities().join(","));
-                writeln!(self.stdout, "{}", response)?;
-                debug!("wrote capabilities: {}", response.trim());
+                response = format!("{}\n", self.remote_helper.capabilities().join(","));
             }
             "list" => {
                 if args.len() != 0 {
                     return Err(CLIError::MalformedLine(line));
                 }
 
-                let mut response = String::new();
                 for reference in self.remote_helper.list()? {
                     response.push_str(&format!("{}\n", reference));
                 }
-                writeln!(self.stdout, "{}", response)?;
-                debug!("wrote list: {}", response.trim());
+            }
+            "fetch" => {
+                if args.len() != 2 {
+                    return Err(CLIError::MalformedLine(line));
+                }
+
+                let hash = args[0];
+                let ref_name = args[1];
+                debug!("fetch: {} {}", hash, ref_name);
             }
             _ => {
                 return Err(CLIError::UnknownCommand(command.to_string()));
             }
         }
+
+        writeln!(self.stdout, "{}", response)?;
+        info!("{}:\n{}", command, response);
+
         Ok(())
     }
 
@@ -75,6 +89,7 @@ impl<'a> CLI<'a> {
         loop {
             let mut line = String::new();
             match self.stdin.read_line(&mut line) {
+                Ok(0) => return Ok(()),
                 Ok(_) => match line.as_str() {
                     "\n" => return Ok(()),
                     _ => self.handle_line(line)?,
