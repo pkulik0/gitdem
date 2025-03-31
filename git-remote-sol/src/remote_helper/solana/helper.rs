@@ -22,7 +22,7 @@ impl RemoteHelper for Solana {
         vec!["*fetch", "*push"]
     }
 
-    fn list(&self) -> Result<Vec<Reference>, RemoteHelperError> {
+    fn list(&self, is_for_push: bool) -> Result<Vec<Reference>, RemoteHelperError> {
         Ok(vec![])
     }
 

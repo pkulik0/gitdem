@@ -15,7 +15,7 @@ impl RemoteHelper for Mock {
         vec!["*fetch", "*push"]
     }
 
-    fn list(&self) -> Result<Vec<Reference>, RemoteHelperError> {
+    fn list(&self, _is_for_push: bool) -> Result<Vec<Reference>, RemoteHelperError> {
         Ok(self.refs.clone())
     }
 

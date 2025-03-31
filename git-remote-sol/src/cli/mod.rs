@@ -71,11 +71,16 @@ impl<'a> CLI<'a> {
                 response = format!("{}\n", self.remote_helper.capabilities().join("\n"));
             }
             "list" => {
-                if args.len() != 0 {
-                    return Err(CLIError::MalformedLine(line));
-                }
+                let is_for_push = match args.len() {
+                    0 => false,
+                    1 => match args[0] {
+                        "for-push" => true,
+                        _ => return Err(CLIError::MalformedLine(line)),
+                    }
+                    _ => return Err(CLIError::MalformedLine(line)),
+                };
 
-                for reference in self.remote_helper.list()? {
+                for reference in self.remote_helper.list(is_for_push)? {
                     response.push_str(&format!("{}\n", reference));
                 }
             }

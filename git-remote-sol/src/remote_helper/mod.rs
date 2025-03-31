@@ -24,7 +24,7 @@ impl std::fmt::Display for RemoteHelperError {
 
 pub trait RemoteHelper {
     fn capabilities(&self) -> Vec<&'static str>;
-    fn list(&self) -> Result<Vec<Reference>, RemoteHelperError>;
+    fn list(&self, is_for_push: bool) -> Result<Vec<Reference>, RemoteHelperError>;
     fn fetch(&self, refs: &[Reference]) -> Result<(), RemoteHelperError>;
 }
 
