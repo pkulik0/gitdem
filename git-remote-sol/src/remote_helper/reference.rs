@@ -56,7 +56,10 @@ pub struct Reference {
 
 impl fmt::Display for Reference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} {}", self.value, self.name)?;
+        write!(f, "{}", self.value)?;
+        if !self.name.is_empty() {
+            write!(f, " {}", self.name)?;
+        }
         for attr in self.attributes.iter() {
             write!(f, " {}", attr)?;
         }
