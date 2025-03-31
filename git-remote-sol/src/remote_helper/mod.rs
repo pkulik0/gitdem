@@ -11,9 +11,20 @@ pub mod mock;
 #[cfg(test)]
 pub mod tests;
 
+#[derive(Debug)]
+pub enum RemoteHelperError {}
+
+impl Error for RemoteHelperError {}
+
+impl std::fmt::Display for RemoteHelperError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
+
 pub trait RemoteHelper {
     fn capabilities(&self) -> Vec<&'static str>;
-    fn list(&self) -> Result<Vec<Reference>, Box<dyn Error>>;
+    fn list(&self) -> Result<Vec<Reference>, RemoteHelperError>;
 }
 
 pub trait Wallet {

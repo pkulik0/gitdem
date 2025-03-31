@@ -1,9 +1,6 @@
-use std::error::Error;
-
 use crate::config::Config;
 use crate::remote_helper::solana::config::SolanaConfig;
-use crate::remote_helper::reference::Reference;
-use crate::remote_helper::RemoteHelper;
+use crate::remote_helper::{RemoteHelper, RemoteHelperError, Reference};
 
 pub struct Solana {
   config: SolanaConfig,
@@ -20,7 +17,7 @@ impl RemoteHelper for Solana {
       vec!["fetch", "push"]
   }
 
-  fn list(&self) -> Result<Vec<Reference>, Box<dyn Error>> {
+  fn list(&self) -> Result<Vec<Reference>, RemoteHelperError> {
       Ok(vec![])
   }   
 }

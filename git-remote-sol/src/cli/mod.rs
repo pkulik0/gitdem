@@ -1,9 +1,12 @@
 use crate::remote_helper::RemoteHelper;
-use std::error::Error;
+use log::{debug, info};
 use std::io::{BufRead, Write};
-use log::{debug, error, info};
+
+mod error;
 #[cfg(test)]
 mod tests;
+
+use error::CLIError;
 
 pub struct CLI<'a> {
     remote_helper: Box<dyn RemoteHelper>,
@@ -34,9 +37,9 @@ impl<'a> CLI<'a> {
         }
     }
 
-    fn handle_command(&mut self, command: &str) -> Result<(), Box<dyn Error>> {
+    fn handle_command(&mut self, command: &str) -> Result<(), CLIError> {
         match command {
-            "capabilities" => {
+            "capabilities\n" => {
                 debug!("returning capabilities");
                 writeln!(
                     self.stdout,
@@ -44,7 +47,7 @@ impl<'a> CLI<'a> {
                     self.remote_helper.capabilities().join(",")
                 )?;
             }
-            "list" => {
+            "list\n" => {
                 debug!("listing refs");
                 let refs = self.remote_helper.list()?;
                 for reference in refs {
@@ -52,27 +55,31 @@ impl<'a> CLI<'a> {
                 }
                 writeln!(self.stdout)?; // needs a new line after the list
             }
-            "fetch" => {
+            "fetch\n" => {
                 debug!("fetching");
             }
+            "\n" => {
+                return Err(CLIError::EndOfInput);
+            }
             _ => {
-                return Err(format!("unknown command: \"{}\"", command).into());
+                return Err(CLIError::UnknownCommand(command.to_string()));
             }
         }
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result<(), Box<dyn Error>> {
+    pub fn run(&mut self) -> Result<(), CLIError> {
         let mut command = String::new();
         loop {
             match self.stdin.read_line(&mut command) {
-                Ok(_) => match command.as_str() {
-                    "\n" => return Ok(()), // used by git to signal end of input
-                    _ => self.handle_command(command.trim())?,
-                }
+                Ok(_) => match self.handle_command(command.as_str()) {
+                    Ok(_) => {}
+                    Err(CLIError::EndOfInput) => return Ok(()),
+                    Err(e) => return Err(e),
+                },
                 Err(e) => match e.kind() {
                     std::io::ErrorKind::BrokenPipe => return Ok(()),
-                    _ => return Err(format!("failed to read command: {}", e).into())
+                    _ => return Err(e.into()),
                 },
             }
             command.clear();

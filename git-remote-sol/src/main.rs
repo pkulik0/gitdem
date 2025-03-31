@@ -12,8 +12,8 @@ mod tests;
 use config::mock::MockConfig;
 #[cfg(feature = "mock")]
 use remote_helper::mock::Mock;
-// #[cfg(feature = "mock")]
-// use remote_helper::reference::{Reference, Value};
+#[cfg(feature = "mock")]
+use remote_helper::reference::{Reference, Value};
 
 use flexi_logger::{FileSpec, Logger, WriteMode};
 use log::{error, info};
@@ -22,9 +22,10 @@ use std::io;
 use std::io::Write;
 
 fn main() {
-    let _logger = Logger::try_with_str("trace").expect("failed to create logger")
+    let _logger = Logger::try_with_str("trace")
+        .expect("failed to create logger")
         .log_to_file(FileSpec::default())
-        .write_mode(WriteMode::BufferAndFlush)
+        .write_mode(WriteMode::Direct)
         .start()
         .expect("failed to start logger");
 
@@ -58,7 +59,7 @@ fn main() {
         Ok(_) => {},
         Err(e) => {
             error!("failed to run cli: {}", e);
-            writeln!(stderr, "remote-sol: {}", e).unwrap();
+            writeln!(stderr, "remote-sol: {}", e).expect("failed to write to stderr");
             std::process::exit(1);
         }
     }

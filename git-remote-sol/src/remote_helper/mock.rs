@@ -1,5 +1,4 @@
-use crate::remote_helper::{Reference, RemoteHelper};
-use std::error::Error;
+use crate::remote_helper::{Reference, RemoteHelper, RemoteHelperError};
 
 pub struct Mock {
     refs: Vec<Reference>,
@@ -22,7 +21,7 @@ impl RemoteHelper for Mock {
         vec!["fetch", "push"]
     }
 
-    fn list(&self) -> Result<Vec<Reference>, Box<dyn Error>> {
+    fn list(&self) -> Result<Vec<Reference>, RemoteHelperError> {
         Ok(self.refs.clone())
     }
 }
