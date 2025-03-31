@@ -4,7 +4,7 @@ use std::fmt;
 
 #[derive(Debug)]
 pub enum CLIError {
-    EndOfInput,
+    MalformedLine(String),
     Command(RemoteHelperError),
     UnknownCommand(String),
     InputOutput(std::io::Error),
@@ -15,7 +15,7 @@ impl Error for CLIError {}
 impl std::fmt::Display for CLIError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CLIError::EndOfInput => write!(f, "end of input"),
+            CLIError::MalformedLine(line) => write!(f, "malformed line: {:?}", line),
             CLIError::Command(e) => write!(f, "command error: {}", e),
             CLIError::UnknownCommand(command) => write!(f, "unknown command: {:?}", command),
             CLIError::InputOutput(e) => write!(f, "input/output error: {}", e),
