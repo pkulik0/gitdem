@@ -1,4 +1,5 @@
 use crate::cli::CLI;
+use crate::remote_helper::hash::Hash;
 use crate::remote_helper::mock::Mock;
 use crate::remote_helper::reference::{Keyword, Reference, Value};
 use std::io::{BufReader, Cursor};
@@ -10,7 +11,12 @@ fn capabilities() {
     let mut stderr = Vec::new();
 
     let remote_helper = Mock::new(vec![]);
-    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr);
+    let mut cli = CLI::new(
+        Box::new(remote_helper),
+        &mut stdin,
+        &mut stdout,
+        &mut stderr,
+    );
 
     cli.run().expect("failed to run cli");
     assert_eq!(stdout, b"*fetch\n*push\n\n");
@@ -25,7 +31,12 @@ fn list() {
     let mut stderr = Vec::new();
 
     let remote_helper = Mock::new(vec![]);
-    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr);
+    let mut cli = CLI::new(
+        Box::new(remote_helper),
+        &mut stdin,
+        &mut stdout,
+        &mut stderr,
+    );
     cli.run().expect("failed to run cli");
     assert_eq!(stdout, b"\n"); // new line indicates the end of the list
     assert_eq!(stderr, b"");
@@ -37,7 +48,10 @@ fn list() {
 
     let refs = vec![
         Reference {
-            value: Value::Hash("1234567890".to_string()),
+            value: Value::Hash(
+                Hash::from_str("4e1243bd22c66e76c2ba9eddc1f91394e57f9f83")
+                    .expect("failed to create hash"),
+            ),
             name: "refs/heads/main".to_string(),
             attributes: vec![],
         },
@@ -53,8 +67,16 @@ fn list() {
         },
     ];
     let remote_helper = Mock::new(refs.clone());
-    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout, &mut stderr);
+    let mut cli = CLI::new(
+        Box::new(remote_helper),
+        &mut stdin,
+        &mut stdout,
+        &mut stderr,
+    );
     cli.run().expect("failed to run cli");
-    assert_eq!(stdout, format!("{}\n{}\n{}\n\n", refs[0], refs[1], refs[2]).as_bytes());
+    assert_eq!(
+        stdout,
+        format!("{}\n{}\n{}\n\n", refs[0], refs[1], refs[2]).as_bytes()
+    );
     assert_eq!(stderr, b"");
 }

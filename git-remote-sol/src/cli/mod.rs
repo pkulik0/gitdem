@@ -1,4 +1,4 @@
-use crate::remote_helper::{RemoteHelper, reference::Reference};
+use crate::remote_helper::{RemoteHelper, reference::Reference, hash::Hash};
 use log::{debug, info};
 use std::io::{BufRead, Write};
 
@@ -8,7 +8,9 @@ mod tests;
 
 use error::CLIError;
 
+#[derive(Default, PartialEq)]
 enum State {
+    #[default]
     None,
     ListingFetches(Vec<Reference>),
 }
@@ -39,16 +41,22 @@ impl<'a> CLI<'a> {
         }
     }
 
+    fn do_fetch(&mut self, refs: &[Reference]) -> Result<(), CLIError> {
+        info!("fetch: {:?}", refs);
+
+        for reference in refs {
+            self.remote_helper.fetch(reference)?;
+        }
+
+        writeln!(self.stdout)?;
+        Ok(())
+    }
+
     fn handle_line(&mut self, line: String) -> Result<(), CLIError> {
         if line == "\n" {
-            match &self.state {
+            match std::mem::take(&mut self.state) {
                 State::None => return Err(CLIError::EndOfInput),
-                State::ListingFetches(refs) => {
-                    // TODO: Implement
-                    info!("fetch: {:?}", refs);
-                    self.state = State::None;
-                    return Ok(());
-                }
+                State::ListingFetches(refs) => return self.do_fetch(&refs),
             }
         }
 
@@ -76,7 +84,7 @@ impl<'a> CLI<'a> {
                     1 => match args[0] {
                         "for-push" => true,
                         _ => return Err(CLIError::MalformedLine(line)),
-                    }
+                    },
                     _ => return Err(CLIError::MalformedLine(line)),
                 };
 
@@ -89,7 +97,7 @@ impl<'a> CLI<'a> {
                     return Err(CLIError::MalformedLine(line));
                 }
 
-                let hash = args[0].to_string();
+                let hash = Hash::from_str(args[0])?;
                 let ref_name = args[1].to_string();
                 let reference = Reference::new_with_hash(ref_name, hash);
 
@@ -107,14 +115,11 @@ impl<'a> CLI<'a> {
             _ => return Err(CLIError::UnknownCommand(line)),
         }
 
-        match &self.state {
-            State::None => {
-                writeln!(self.stdout, "{}", response)?;
-                if !response.is_empty() {
-                    info!("{}:\n{}", command, response);
-                }
+        if self.state == State::None {
+            writeln!(self.stdout, "{}", response)?;
+            if !response.is_empty() {
+                info!("{}:\n{}", command, response);
             }
-            _ => {}
         }
 
         Ok(())
@@ -128,7 +133,7 @@ impl<'a> CLI<'a> {
                 Ok(_) => match self.handle_line(line) {
                     Err(CLIError::EndOfInput) => return Ok(()),
                     Err(e) => return Err(e),
-                    Ok(_) => {},
+                    Ok(_) => {}
                 },
                 Err(e) => match e.kind() {
                     std::io::ErrorKind::BrokenPipe => return Ok(()),
