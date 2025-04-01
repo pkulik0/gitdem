@@ -14,7 +14,7 @@ It consists of several parts:
 
 The git remote helper is a tool that adds Solana support to git. It allows you to push and pull your repositories from the blockchain. 
 
-You can find more about git remote helpers [here](https://git-scm.com/docs/gitremote-helpers)
+You can find more about git remote helpers [here](./git-remote-sol/gitremote-helpers.adoc)
 
 ### Solana contracts
 
