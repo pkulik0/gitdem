@@ -1,10 +1,13 @@
 use std::error::Error;
 use std::fmt;
-use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 
-const SOLANA_ADDRESS_ALPHABET: &str = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-const SOLANA_ADDRESS_LENGTH_RANGE: RangeInclusive<usize> = 32..=44;
+use regex::Regex;
+
+const SOLANA_ADDRESS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$").expect("failed to create solana address regex")
+});
 
 const EXECUTABLE_PREFIX: &str = "git-remote-";
 
@@ -101,7 +104,10 @@ fn test_protocol_from_arg() {
     assert_eq!(protocol, "sol");
 
     let protocol = protocol_from_arg("git-remote-").expect_err("expected error");
-    assert_eq!(protocol, ArgsError::InvalidProtocol("git-remote-".to_string()));
+    assert_eq!(
+        protocol,
+        ArgsError::InvalidProtocol("git-remote-".to_string())
+    );
 
     let protocol = protocol_from_arg("\\").expect_err("expected error");
     assert_eq!(protocol, ArgsError::InvalidProtocol("\\".to_string()));
@@ -175,10 +181,7 @@ fn test_validate_remote_name() {
 }
 
 fn validate_address(address: &str) -> bool {
-    if !SOLANA_ADDRESS_LENGTH_RANGE.contains(&address.len()) {
-        return false;
-    }
-    address.chars().all(|c| SOLANA_ADDRESS_ALPHABET.contains(c))
+    SOLANA_ADDRESS_REGEX.is_match(address)
 }
 
 #[test]

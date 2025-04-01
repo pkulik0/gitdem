@@ -370,6 +370,7 @@ dependencies = [
  "log",
  "mime_guess",
  "open",
+ "regex",
  "reqwest",
  "rust-embed",
  "tempfile",
