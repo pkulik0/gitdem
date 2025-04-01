@@ -19,7 +19,7 @@ impl Config for GitConfig {
       .arg("config")
       .arg("--get")
       .arg(key)
-      .current_dir(self.dir.clone())
+      .current_dir(self.dir.as_path())
       .output()?;
 
     let value = String::from_utf8(cmd.stdout)?;
