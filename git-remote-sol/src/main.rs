@@ -7,21 +7,17 @@ mod tests;
 
 use args::Args;
 use cli::CLI;
-use config::git::GitConfig;
-
-#[cfg(feature = "mock")]
-use config::mock::MockConfig;
 #[cfg(feature = "mock")]
 use remote_helper::mock::Mock;
-#[cfg(feature = "mock")]
-use remote_helper::reference::{Keyword, Reference, Value};
+#[cfg(not(feature = "mock"))]
+use remote_helper::solana::helper::Solana;
 
 use flexi_logger::{FileSpec, Logger, WriteMode};
 use log::{debug, error, warn};
-use remote_helper::solana::helper::Solana;
 use std::error::Error;
 use std::io;
 use std::path::PathBuf;
+
 // Remote helpers are run by git
 // Use this environment variable to wait for a debugger to attach
 #[cfg(debug_assertions)]
@@ -46,6 +42,8 @@ fn setup_panic_hook() {
 
 #[cfg(not(feature = "mock"))]
 fn construct_remote_helper(args: Args) -> Solana {
+    use config::git::GitConfig;
+
     debug!("using solana remote helper");
     let config = Box::new(GitConfig::new(args.directory().clone()));
     Solana::new(args, config)
@@ -53,6 +51,10 @@ fn construct_remote_helper(args: Args) -> Solana {
 
 #[cfg(feature = "mock")]
 fn construct_remote_helper(_: Args) -> Mock {
+    use config::mock::MockConfig;
+    use remote_helper::hash::Hash;
+    use remote_helper::reference::{Keyword, Reference, Value};
+
     warn!("using mock remote helper");
     Mock::new(vec![
         Reference {
@@ -61,7 +63,9 @@ fn construct_remote_helper(_: Args) -> Mock {
             attributes: vec![],
         },
         Reference {
-            value: Value::Hash("4e1243bd22c66e76c2ba9eddc1f91394e57f9f83".to_string()),
+            value: Value::Hash(
+                Hash::from_str("4e1243bd22c66e76c2ba9eddc1f91394e57f9f83").expect("invalid hash"),
+            ),
             name: "refs/heads/main".to_string(),
             attributes: vec![],
         },
