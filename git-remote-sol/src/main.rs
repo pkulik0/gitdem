@@ -54,7 +54,7 @@ fn construct_remote_helper(args: Args) -> Solana {
 #[cfg(feature = "mock")]
 fn construct_remote_helper(_: Args) -> Mock {
     warn!("using mock remote helper");
-    Mock::new_with_refs(vec![
+    Mock::new(vec![
         Reference {
             value: Value::KeyValue(Keyword::ObjectFormat("sha1".to_string())),
             name: "".to_string(),
