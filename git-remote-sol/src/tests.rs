@@ -48,3 +48,67 @@ fn test_integration_clone() {
     //     .expect("failed to find origin remote");
     // assert_eq!(remotes.url(), Some(remote_url.as_str()));
 }
+
+#[test]
+fn test_integration_push() {
+    let path = get_path_and_prepare();
+    let temp_dir = tempfile::tempdir().expect("failed to create temp dir");
+
+    let repo_address = "DBWrGX82Abj1R9HxarNuucwSdyuq11HU4twzfjgQZ1FJ";
+    let remote_url = format!("sol://{}", repo_address);
+
+    let cmd = Command::new("git")
+        .args(&["init"])
+        .env("PATH", path.as_str())
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("failed to init");
+    if !cmd.status.success() {
+        panic!("failed to init {}", String::from_utf8_lossy(&cmd.stderr));
+    }
+
+    let file_content = "Hello, world!";
+    let file_path = temp_dir.path().join("test.txt");
+    std::fs::write(file_path, file_content).expect("failed to write file");
+
+    let cmd = Command::new("git")
+        .args(&["add", "test.txt"])
+        .env("PATH", path.as_str())
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("failed to add");
+    if !cmd.status.success() {
+        panic!("failed to add {}", String::from_utf8_lossy(&cmd.stderr));
+    }
+
+    let cmd = Command::new("git")
+        .args(&["commit", "-m", "Initial commit"])
+        .env("PATH", path.as_str())
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("failed to commit");
+    if !cmd.status.success() {
+        panic!("failed to commit {}", String::from_utf8_lossy(&cmd.stderr));
+    }
+
+    let remote_name = "origin";
+    let cmd = Command::new("git")
+        .args(&["remote", "add", remote_name, remote_url.as_str()])
+        .env("PATH", path.as_str())
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("failed to add remote");
+    if !cmd.status.success() {
+        panic!("failed to add remote {}", String::from_utf8_lossy(&cmd.stderr));
+    }
+
+    let cmd = Command::new("git")
+        .args(&["push", "--set-upstream", remote_name, "main"])
+        .env("PATH", path.as_str())
+        .current_dir(temp_dir.path())
+        .output()
+        .expect("failed to push");
+    if !cmd.status.success() {
+        panic!("failed to push {}", String::from_utf8_lossy(&cmd.stderr));
+    }
+}

@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use reference::Reference;
+use reference::{Reference, ReferencePush};
 
 pub mod solana;
 pub mod reference;
@@ -31,6 +31,7 @@ pub trait RemoteHelper {
     fn capabilities(&self) -> Vec<&'static str>;
     fn list(&self, is_for_push: bool) -> Result<Vec<Reference>, RemoteHelperError>;
     fn fetch(&self, reference: &Reference) -> Result<(), RemoteHelperError>;
+    fn push(&self, reference: &ReferencePush) -> Result<(), RemoteHelperError>;
 }
 
 pub trait Wallet {

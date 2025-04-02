@@ -7,6 +7,7 @@ pub enum CLIError {
     MalformedLine(String),
     Command(RemoteHelperError),
     UnknownCommand(String),
+    IllegalState(String),
     InputOutput(std::io::Error),
     EndOfInput,
 }
@@ -19,6 +20,7 @@ impl std::fmt::Display for CLIError {
             CLIError::MalformedLine(line) => write!(f, "malformed line: {:?}", line),
             CLIError::Command(e) => write!(f, "command error: {}", e),
             CLIError::UnknownCommand(command) => write!(f, "unknown command: {:?}", command),
+            CLIError::IllegalState(state) => write!(f, "command results in illegal state: {:?}", state),
             CLIError::InputOutput(e) => write!(f, "input/output error: {}", e),
             CLIError::EndOfInput => write!(f, "end of input"),
         }

@@ -1,4 +1,8 @@
-use crate::remote_helper::{RemoteHelper, reference::Reference, hash::Hash};
+use crate::remote_helper::{
+    RemoteHelper,
+    hash::Hash,
+    reference::{Reference, ReferencePush},
+};
 use log::{debug, info};
 use std::io::{BufRead, Write};
 
@@ -13,6 +17,7 @@ enum State {
     #[default]
     None,
     ListingFetches(Vec<Reference>),
+    ListingPushes(Vec<ReferencePush>),
 }
 
 pub struct CLI<'a> {
@@ -52,11 +57,35 @@ impl<'a> CLI<'a> {
         Ok(())
     }
 
+    fn do_push(&mut self, refs: &[ReferencePush]) -> Result<(), CLIError> {
+        info!("push: {:?}", refs);
+
+        let results = refs.iter().map(|reference| {
+            match self.remote_helper.push(reference) {
+                Ok(_) => {
+                    return format!("ok {}", reference.dest);
+                },
+                Err(e) => {
+                    return format!("err {} {}", reference.dest, e);
+                }
+            }
+        }).collect::<Vec<String>>();
+
+        for result in &results {
+            writeln!(self.stdout, "{}", result)?;
+        }
+        debug!("push results: {:?}", results);
+
+        writeln!(self.stdout)?;
+        Ok(())
+    }
+
     fn handle_line(&mut self, line: String) -> Result<(), CLIError> {
         if line == "\n" {
             match std::mem::take(&mut self.state) {
                 State::None => return Err(CLIError::EndOfInput),
                 State::ListingFetches(refs) => return self.do_fetch(&refs),
+                State::ListingPushes(refs) => return self.do_push(&refs),
             }
         }
 
@@ -110,6 +139,40 @@ impl<'a> CLI<'a> {
                         debug!("appending fetch to list: {:?}", reference);
                         refs.push(reference);
                     }
+                    State::ListingPushes(_) => return Err(CLIError::IllegalState(line))
+                }
+            }
+            "push" => {
+                if args.len() != 1 {
+                    return Err(CLIError::MalformedLine(line));
+                }
+
+                let mut arg = args[0];
+
+                let is_force = arg.starts_with("+");
+                if is_force {
+                    arg = &arg[1..];
+                }
+
+                let parts = arg.split(':').collect::<Vec<&str>>();
+                if parts.len() != 2 {
+                    return Err(CLIError::MalformedLine(line));
+                }
+
+                let src = parts[0];
+                let dest = parts[1];
+                let reference = ReferencePush::new(src.to_string(), dest.to_string(), is_force);
+
+                match &mut self.state {
+                    State::None => {
+                        debug!("new push list with: {:?}", reference);
+                        self.state = State::ListingPushes(vec![reference]);
+                    }
+                    State::ListingPushes(refs) => {
+                        debug!("appending push to list: {:?}", reference);
+                        refs.push(reference);
+                    }
+                    State::ListingFetches(_) => return Err(CLIError::IllegalState(line))
                 }
             }
             _ => return Err(CLIError::UnknownCommand(line)),

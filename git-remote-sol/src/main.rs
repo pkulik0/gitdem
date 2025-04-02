@@ -57,23 +57,23 @@ fn construct_remote_helper(_: Args) -> Mock {
 
     warn!("using mock remote helper");
     Mock::new(vec![
-        Reference {
-            value: Value::KeyValue(Keyword::ObjectFormat("sha1".to_string())),
-            name: "".to_string(),
-            attributes: vec![],
-        },
-        Reference {
-            value: Value::Hash(
-                Hash::from_str("4e1243bd22c66e76c2ba9eddc1f91394e57f9f83").expect("invalid hash"),
-            ),
-            name: "refs/heads/main".to_string(),
-            attributes: vec![],
-        },
-        Reference {
-            value: Value::SymRef("refs/heads/main".to_string()),
-            name: "HEAD".to_string(),
-            attributes: vec![],
-        },
+        // Reference {
+        //     value: Value::KeyValue(Keyword::ObjectFormat("sha1".to_string())),
+        //     name: "".to_string(),
+        //     attributes: vec![],
+        // },
+        // Reference {
+        //     value: Value::Hash(
+        //         Hash::from_str("4e1243bd22c66e76c2ba9eddc1f91394e57f9f83").expect("invalid hash"),
+        //     ),
+        //     name: "refs/heads/main".to_string(),
+        //     attributes: vec![],
+        // },
+        // Reference {
+        //     value: Value::SymRef("refs/heads/main".to_string()),
+        //     name: "HEAD".to_string(),
+        //     attributes: vec![],
+        // },
     ])
 }
 

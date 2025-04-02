@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::remote_helper::solana::config::SolanaConfig;
-use crate::remote_helper::{Reference, RemoteHelper, RemoteHelperError};
+use crate::remote_helper::{Reference, ReferencePush, RemoteHelper, RemoteHelperError};
 use crate::args::Args;
 
 pub struct Solana {
@@ -27,6 +27,10 @@ impl RemoteHelper for Solana {
     }
 
     fn fetch(&self, reference: &Reference) -> Result<(), RemoteHelperError> {
+        Ok(())
+    }
+
+    fn push(&self, reference: &ReferencePush) -> Result<(), RemoteHelperError> {
         Ok(())
     }
 }

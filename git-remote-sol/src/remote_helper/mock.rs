@@ -1,4 +1,4 @@
-use crate::remote_helper::{Reference, RemoteHelper, RemoteHelperError};
+use crate::remote_helper::{Reference, ReferencePush, RemoteHelper, RemoteHelperError};
 
 pub struct Mock {
     refs: Vec<Reference>,
@@ -20,6 +20,10 @@ impl RemoteHelper for Mock {
     }
 
     fn fetch(&self, reference: &Reference) -> Result<(), RemoteHelperError> {
+        Ok(())
+    }
+
+    fn push(&self, _reference: &ReferencePush) -> Result<(), RemoteHelperError> {
         Ok(())
     }
 }
