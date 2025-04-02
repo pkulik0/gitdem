@@ -66,7 +66,7 @@ impl<'a> CLI<'a> {
                     return format!("ok {}", reference.dest);
                 },
                 Err(e) => {
-                    return format!("err {} {}", reference.dest, e);
+                    return format!("error {} {}", reference.dest, e);
                 }
             }
         }).collect::<Vec<String>>();
