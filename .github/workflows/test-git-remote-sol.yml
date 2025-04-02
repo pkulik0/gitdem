@@ -18,6 +18,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    # This is needed for integration tests which use git
+    - name: Setup git config
+      run: |
+        git config --global user.email "github-actions@github.com"
+        git config --global user.name "github-actions"
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
     - name: Build
