@@ -1,17 +1,8 @@
-use crate::remote_helper::mock::Mock;
-
-use super::browser::{BridgeAssets, Browser, BrowserLinkOpener, LinkOpener};
-use super::{Executor, Transaction};
 use std::error::Error;
-use std::thread;
 
-#[test]
-fn test_bridge_assets() {
-    assert!(BridgeAssets::iter().count() > 0);
-    assert!(BridgeAssets::get("index.html").is_some());
-}
+use super::browser::LinkOpener;
 
-struct MockLinkOpener;
+pub struct MockLinkOpener;
 
 fn send_done_request(url: &str) -> Result<(), Box<dyn Error>> {
     let url = format!("{}/done", url);
@@ -32,10 +23,4 @@ impl LinkOpener for MockLinkOpener {
         });
         Ok(())
     }
-}
-
-#[test]
-fn test_browser() {
-    let browser = Browser::new(Box::new(MockLinkOpener)).expect("failed to create browser");
-    browser.execute(Transaction).expect("failed to execute transaction");
 }

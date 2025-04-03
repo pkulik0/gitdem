@@ -1,7 +1,5 @@
 use std::error::Error;
 
-#[cfg(test)]
-mod tests;
 #[cfg(any(test, feature = "mock"))]
 pub mod mock;
 

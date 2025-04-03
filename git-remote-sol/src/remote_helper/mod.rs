@@ -5,12 +5,10 @@ use reference::{Reference, ReferencePush};
 pub mod solana;
 pub mod reference;
 pub mod hash;
-mod transaction;
+mod executor;
 
 #[cfg(any(test, feature = "mock"))]
 pub mod mock;
-#[cfg(test)]
-pub mod tests;
 
 #[derive(Debug, PartialEq)]
 pub enum RemoteHelperError {

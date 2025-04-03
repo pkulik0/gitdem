@@ -7,7 +7,8 @@ use background::Background;
 use super::Wallet;
 
 #[cfg(test)]
-mod tests;
+mod mock;
+mod assets;
 
 pub struct Transaction;
 

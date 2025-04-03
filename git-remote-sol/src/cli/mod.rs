@@ -1,15 +1,21 @@
+use log::{debug, info};
+#[cfg(test)]
+use std::io::BufReader;
+#[cfg(test)]
+use std::io::Cursor;
+use std::io::{BufRead, Write};
+
+mod error;
+
+#[cfg(test)]
+use crate::remote_helper::mock::Mock;
+#[cfg(test)]
+use crate::remote_helper::reference::{Keyword, Value};
 use crate::remote_helper::{
     RemoteHelper,
     hash::Hash,
     reference::{Reference, ReferencePush},
 };
-use log::{debug, info};
-use std::io::{BufRead, Write};
-
-mod error;
-#[cfg(test)]
-mod tests;
-
 use error::CLIError;
 
 #[derive(Default, PartialEq)]
@@ -60,16 +66,17 @@ impl<'a> CLI<'a> {
     fn do_push(&mut self, refs: &[ReferencePush]) -> Result<(), CLIError> {
         info!("push: {:?}", refs);
 
-        let results = refs.iter().map(|reference| {
-            match self.remote_helper.push(reference) {
+        let results = refs
+            .iter()
+            .map(|reference| match self.remote_helper.push(reference) {
                 Ok(_) => {
                     return format!("ok {}", reference.dest);
-                },
+                }
                 Err(e) => {
                     return format!("error {} {}", reference.dest, e);
                 }
-            }
-        }).collect::<Vec<String>>();
+            })
+            .collect::<Vec<String>>();
 
         for result in &results {
             writeln!(self.stdout, "{}", result)?;
@@ -139,7 +146,7 @@ impl<'a> CLI<'a> {
                         debug!("appending fetch to list: {:?}", reference);
                         refs.push(reference);
                     }
-                    State::ListingPushes(_) => return Err(CLIError::IllegalState(line))
+                    State::ListingPushes(_) => return Err(CLIError::IllegalState(line)),
                 }
             }
             "push" => {
@@ -172,7 +179,7 @@ impl<'a> CLI<'a> {
                         debug!("appending push to list: {:?}", reference);
                         refs.push(reference);
                     }
-                    State::ListingFetches(_) => return Err(CLIError::IllegalState(line))
+                    State::ListingFetches(_) => return Err(CLIError::IllegalState(line)),
                 }
             }
             _ => return Err(CLIError::UnknownCommand(line)),
@@ -205,4 +212,81 @@ impl<'a> CLI<'a> {
             }
         }
     }
+}
+
+#[test]
+fn test_capabilities() {
+    let mut stdin = BufReader::new(Cursor::new(b"capabilities\n\n".to_vec()));
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+
+    let remote_helper = Mock::new(vec![]);
+    let mut cli = CLI::new(
+        Box::new(remote_helper),
+        &mut stdin,
+        &mut stdout,
+        &mut stderr,
+    );
+
+    cli.run().expect("failed to run cli");
+    assert_eq!(stdout, b"*fetch\n*push\n\n");
+    assert_eq!(stderr, b"");
+}
+
+#[test]
+fn test_list() {
+    // Case 1: No refs
+    let mut stdin = BufReader::new(Cursor::new(b"list\n\n".to_vec()));
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+
+    let remote_helper = Mock::new(vec![]);
+    let mut cli = CLI::new(
+        Box::new(remote_helper),
+        &mut stdin,
+        &mut stdout,
+        &mut stderr,
+    );
+    cli.run().expect("failed to run cli");
+    assert_eq!(stdout, b"\n"); // new line indicates the end of the list
+    assert_eq!(stderr, b"");
+
+    // Case 2: Some refs
+    let mut stdin = BufReader::new(Cursor::new(b"list\n\n".to_vec()));
+    let mut stdout = Vec::new();
+    let mut stderr = Vec::new();
+
+    let refs = vec![
+        Reference {
+            value: Value::Hash(
+                Hash::from_str("4e1243bd22c66e76c2ba9eddc1f91394e57f9f83")
+                    .expect("failed to create hash"),
+            ),
+            name: "refs/heads/main".to_string(),
+            attributes: vec![],
+        },
+        Reference {
+            value: Value::SymRef("refs/heads/main".to_string()),
+            name: "refs/heads/main".to_string(),
+            attributes: vec![],
+        },
+        Reference {
+            value: Value::KeyValue(Keyword::ObjectFormat("sha1".to_string())),
+            name: "refs/heads/main".to_string(),
+            attributes: vec![],
+        },
+    ];
+    let remote_helper = Mock::new(refs.clone());
+    let mut cli = CLI::new(
+        Box::new(remote_helper),
+        &mut stdin,
+        &mut stdout,
+        &mut stderr,
+    );
+    cli.run().expect("failed to run cli");
+    assert_eq!(
+        stdout,
+        format!("{}\n{}\n{}\n\n", refs[0], refs[1], refs[2]).as_bytes()
+    );
+    assert_eq!(stderr, b"");
 }

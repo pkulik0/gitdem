@@ -3,7 +3,7 @@ mod cli;
 mod config;
 mod remote_helper;
 #[cfg(test)]
-mod tests;
+mod integration_tests;
 
 use args::Args;
 use cli::CLI;
