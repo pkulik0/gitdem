@@ -1,19 +1,19 @@
 mod args;
 mod cli;
 mod config;
-mod remote_helper;
 #[cfg(test)]
 mod integration_tests;
+mod remote_helper;
 
 use args::Args;
 use cli::CLI;
-#[cfg(feature = "mock")]
-use remote_helper::mock::Mock;
 #[cfg(not(feature = "mock"))]
 use remote_helper::evm::helper::Evm;
+#[cfg(feature = "mock")]
+use remote_helper::mock::Mock;
 
 use flexi_logger::{FileSpec, Logger, WriteMode};
-use log::{debug, error, warn};
+use log::{debug, error};
 use std::error::Error;
 use std::io;
 use std::path::PathBuf;
@@ -52,6 +52,7 @@ fn construct_remote_helper(args: Args) -> Evm {
 #[cfg(feature = "mock")]
 fn construct_remote_helper(_: Args) -> Mock {
     use config::mock::MockConfig;
+    use log::warn;
     use remote_helper::hash::Hash;
     use remote_helper::reference::{Keyword, Reference, Value};
 
