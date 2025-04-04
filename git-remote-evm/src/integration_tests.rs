@@ -15,9 +15,18 @@ fn get_path_and_prepare() -> String {
         );
     }
 
-    // 2. Prepare a new PATH with the target/release/git-remote-sol as the first match
-    let path = std::env::var("PATH").expect("PATH is not set");
+    // 2. Symlink git-remote-evm to git-remote-eth
     let target_dir = std::path::Path::new(&manifest_dir).join("target/release");
+    let evm_path = target_dir.join("git-remote-evm");
+    let eth_path = target_dir.join("git-remote-eth");
+    if let Err(e) = std::os::unix::fs::symlink(evm_path, eth_path) {
+        if !e.to_string().contains("exists") {
+            panic!("failed to link git-remote-evm to git-remote-eth: {}", e);
+        }
+    }
+
+    // 3. Prepare a new PATH with the target/release/ as the first match
+    let path = std::env::var("PATH").expect("PATH is not set");
     let new_path = format!("{}:{}", target_dir.display(), path);
     new_path
 }
@@ -79,8 +88,8 @@ fn test_integration_push() {
     let path = get_path_and_prepare();
     let repo_dir = tempfile::tempdir().expect("failed to create temp dir");
 
-    let repo_address = "DBWrGX82Abj1R9HxarNuucwSdyuq11HU4twzfjgQZ1FJ";
-    let remote_url = format!("sol://{}", repo_address);
+    let repo_address = "0xc0ffee254729296a45a3885639AC7E10F9d54979";
+    let remote_url = format!("eth://{}", repo_address);
 
     init_git_repo(&path, &repo_dir);
 

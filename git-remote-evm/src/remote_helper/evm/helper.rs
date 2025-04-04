@@ -1,23 +1,23 @@
 use crate::config::Config;
-use crate::remote_helper::solana::config::SolanaConfig;
+use crate::remote_helper::evm::config::EvmConfig;
 use crate::remote_helper::{Reference, ReferencePush, RemoteHelper, RemoteHelperError};
 use crate::args::Args;
 
-pub struct Solana {
+pub struct Evm {
     args: Args,
-    config: SolanaConfig,
+    config: EvmConfig,
 }
 
-impl Solana {
+impl Evm {
     pub fn new(args: Args, config: Box<dyn Config>) -> Self {
         Self {
             args,
-            config: SolanaConfig::new(config),
+            config: EvmConfig::new(config),
         }
     }
 }
 
-impl RemoteHelper for Solana {
+impl RemoteHelper for Evm {
     fn capabilities(&self) -> Vec<&'static str> {
         vec!["*fetch", "*push"]
     }

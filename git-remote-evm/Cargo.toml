@@ -1,5 +1,5 @@
 [package]
-name = "git-remote-sol"
+name = "git-remote-evm"
 version = "0.1.0"
 edition = "2024"
 

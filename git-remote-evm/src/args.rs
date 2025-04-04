@@ -5,8 +5,8 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-const SOLANA_ADDRESS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[1-9A-HJ-NP-Za-km-z]{32,44}$").expect("failed to create solana address regex")
+const EVM_ADDRESS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^0x[a-fA-F0-9]{40}$").expect("failed to create evm address regex")
 });
 
 const EXECUTABLE_PREFIX: &str = "git-remote-";
@@ -61,15 +61,19 @@ fn address_from_arg<'a>(arg: &'a str, protocol: &str) -> Result<&'a str, ArgsErr
 
 #[test]
 fn test_address_from_arg() {
-    let address = address_from_arg("sol://DBWrGX82Abj1R9HxarNuucwSdyuq11HU4twzfjgQZ1FJ", "sol")
-        .expect("failed to get address");
-    assert_eq!(address, "DBWrGX82Abj1R9HxarNuucwSdyuq11HU4twzfjgQZ1FJ");
+    let address_str = "0xc0ffee254729296a45a3885639AC7E10F9d54979";
+    let protocol = "eth";
+    let prefixed = format!("{}://{}", protocol, address_str);
 
-    let address = address_from_arg("DBWrGX82Abj1R9HxarNuucwSdyuq11HU4twzfjgQZ1FJ", "sol")
+    let address = address_from_arg(&prefixed, protocol)
         .expect("failed to get address");
-    assert_eq!(address, "DBWrGX82Abj1R9HxarNuucwSdyuq11HU4twzfjgQZ1FJ");
+    assert_eq!(address, address_str);
 
-    let address = address_from_arg("invalid", "sol").expect_err("expected error");
+    let address = address_from_arg(address_str, protocol)
+        .expect("failed to get address");
+    assert_eq!(address, address_str);
+
+    let address = address_from_arg("invalid", protocol).expect_err("expected error");
     assert_eq!(address, ArgsError::InvalidAddress("invalid".to_string()));
 }
 
@@ -181,21 +185,21 @@ fn test_validate_remote_name() {
 }
 
 fn validate_address(address: &str) -> bool {
-    SOLANA_ADDRESS_REGEX.is_match(address)
+    EVM_ADDRESS_REGEX.is_match(address)
 }
 
 #[test]
 fn test_validate_address() {
-    let address = "DBWrGX82Abj1R9HxarNuucwSdyuq11HU4twzfjgQZ1FJ";
+    let address = "0xc0ffee254729296a45a3885639AC7E10F9d54979";
     assert!(validate_address(address));
 
-    let too_short = "DBWrGX82Abj1R9Hx";
+    let too_short = "0xc0ffee25472929";
     assert!(!validate_address(too_short));
 
-    let too_long = "DBWrGX82Abj1R9HxarNuucwSDBWrGX82Abj1R9HxarNuucwSDBWrGX82Abj1R9HxarNuucwS";
+    let too_long = "0xc0ffee254729296a45a3885639AC7E10F9d54979313eueE";
     assert!(!validate_address(too_long));
 
-    let invalid_chars = "DBWrGX82Abj1R9HxarNuucwSdyuq11HU4twzfjgQZ1FJ!";
+    let invalid_chars = "0xc0ffee254729296a45a3885639AC7E10F9d54979!";
     assert!(!validate_address(invalid_chars));
 }
 
@@ -252,7 +256,7 @@ fn test_parse() {
     let git_dir = PathBuf::from("/some-dir");
 
     // Case 1: argc == 2
-    let executable = "git-remote-sol";
+    let executable = "git-remote-eth";
     let remote_name = "test-remote";
     let cmd_args = vec![executable.to_string(), remote_name.to_string()];
     let args = Args::parse(&cmd_args, git_dir.clone()).unwrap();
@@ -265,9 +269,9 @@ fn test_parse() {
 
     // Case 2: argc == 3, argv[1] != argv[2]
     let remote_name = "test-remote";
-    let address = "sol://DBWrGX82Abj1R9HxarNuucwSdyuq11HU4twzfjgQZ1FJ";
+    let address = "eth://0xc0ffee254729296a45a3885639AC7E10F9d54979";
     let address_no_prefix = address
-        .strip_prefix("sol://")
+        .strip_prefix("eth://")
         .expect("failed to strip prefix from address");
     let cmd_args = vec![
         executable.to_string(),

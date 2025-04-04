@@ -2,7 +2,7 @@ use std::error::Error;
 
 use reference::{Reference, ReferencePush};
 
-pub mod solana;
+pub mod evm;
 pub mod reference;
 pub mod hash;
 mod executor;

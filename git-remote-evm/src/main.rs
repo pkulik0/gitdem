@@ -10,7 +10,7 @@ use cli::CLI;
 #[cfg(feature = "mock")]
 use remote_helper::mock::Mock;
 #[cfg(not(feature = "mock"))]
-use remote_helper::solana::helper::Solana;
+use remote_helper::evm::helper::Evm;
 
 use flexi_logger::{FileSpec, Logger, WriteMode};
 use log::{debug, error, warn};
@@ -41,12 +41,12 @@ fn setup_panic_hook() {
 }
 
 #[cfg(not(feature = "mock"))]
-fn construct_remote_helper(args: Args) -> Solana {
+fn construct_remote_helper(args: Args) -> Evm {
     use config::git::GitConfig;
 
-    debug!("using solana remote helper");
+    debug!("using evm remote helper");
     let config = Box::new(GitConfig::new(args.directory().clone()));
-    Solana::new(args, config)
+    Evm::new(args, config)
 }
 
 #[cfg(feature = "mock")]
