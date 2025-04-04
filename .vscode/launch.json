@@ -7,7 +7,7 @@
     {
       "type": "lldb",
       "request": "attach",
-      "name": "Debug git-remote-evm with git",
+      "name": "Debug remote helper started by git",
       "program": "${workspaceFolder}/git-remote-evm/target/debug/git-remote-evm",
     }
   ],
