@@ -5,9 +5,9 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-const EVM_ADDRESS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^0x[a-fA-F0-9]{40}$").expect("failed to create evm address regex")
-});
+// Intentionally more flexible than ETH address format in case some chains with EVM have different address formats.
+const ADDRESS_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9]+$").expect("failed to create evm address regex"));
 
 const EXECUTABLE_PREFIX: &str = "git-remote-";
 
@@ -65,16 +65,15 @@ fn test_address_from_arg() {
     let protocol = "eth";
     let prefixed = format!("{}://{}", protocol, address_str);
 
-    let address = address_from_arg(&prefixed, protocol)
-        .expect("failed to get address");
+    let address = address_from_arg(&prefixed, protocol).expect("failed to get address");
     assert_eq!(address, address_str);
 
-    let address = address_from_arg(address_str, protocol)
-        .expect("failed to get address");
+    let address = address_from_arg(address_str, protocol).expect("failed to get address");
     assert_eq!(address, address_str);
 
-    let address = address_from_arg("invalid", protocol).expect_err("expected error");
-    assert_eq!(address, ArgsError::InvalidAddress("invalid".to_string()));
+    let invalid_address = "invalid _";
+    let address = address_from_arg(invalid_address, protocol).expect_err("expected error");
+    assert_eq!(address, ArgsError::InvalidAddress(invalid_address.to_string()));
 }
 
 fn protocol_from_arg(arg: &str) -> Result<&str, ArgsError> {
@@ -185,22 +184,37 @@ fn test_validate_remote_name() {
 }
 
 fn validate_address(address: &str) -> bool {
-    EVM_ADDRESS_REGEX.is_match(address)
+    ADDRESS_REGEX.is_match(address)
 }
 
 #[test]
 fn test_validate_address() {
+    // Successes
+
     let address = "0xc0ffee254729296a45a3885639AC7E10F9d54979";
     assert!(validate_address(address));
 
-    let too_short = "0xc0ffee25472929";
-    assert!(!validate_address(too_short));
+    let address = "0xc0ffee25472929";
+    assert!(validate_address(address));
 
-    let too_long = "0xc0ffee254729296a45a3885639AC7E10F9d54979313eueE";
-    assert!(!validate_address(too_long));
+    let address = "0xc0ffee254729296a45a3885639AC7E10F9d54979313eueE";
+    assert!(validate_address(address));
 
-    let invalid_chars = "0xc0ffee254729296a45a3885639AC7E10F9d54979!";
-    assert!(!validate_address(invalid_chars));
+    let address = "0x123";
+    assert!(validate_address(address));
+
+    let address = "1234567890abcdef";
+    assert!(validate_address(address));
+    // Failures    
+
+    let address = "0xc0ffee254729296a45a3885639AC7E10F9d54979!";
+    assert!(!validate_address(address));
+
+    let address = "";
+    assert!(!validate_address(address));
+
+    let address = "0x 123";
+    assert!(!validate_address(address));
 }
 
 impl Args {
