@@ -7,8 +7,8 @@
     {
       "type": "lldb",
       "request": "attach",
-      "name": "Debug git-remote-sol with git",
-      "program": "${workspaceFolder}/git-remote-sol/target/debug/git-remote-sol",
+      "name": "Debug git-remote-evm with git",
+      "program": "${workspaceFolder}/git-remote-evm/target/debug/git-remote-evm",
     }
   ],
 }
