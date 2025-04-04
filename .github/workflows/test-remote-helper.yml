@@ -16,9 +16,6 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./git-remote-evm
 
     steps:
     # This is needed for integration tests which use git
@@ -30,6 +27,8 @@ jobs:
     - uses: actions/setup-node@v4
     - name: Build
       run: cargo build --verbose
+      working-directory: git-remote-evm
     - name: Run tests
       run: cargo test --verbose
+      working-directory: git-remote-evm
 
