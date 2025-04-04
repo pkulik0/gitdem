@@ -1,13 +1,13 @@
-name: Test git-remote-sol
+name: Test Remote Helper
 
 on:
   push:
     paths:
-      - git-remote-sol/**
+      - git-remote-evm/**
       - wallet-bridge/**
   pull_request:
     paths:
-      - git-remote-sol/**
+      - git-remote-evm/**
       - wallet-bridge/**
 
 env:
@@ -16,6 +16,9 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./git-remote-evm
 
     steps:
     # This is needed for integration tests which use git
@@ -27,7 +30,6 @@ jobs:
     - uses: actions/setup-node@v4
     - name: Build
       run: cargo build --verbose
-      working-directory: git-remote-sol
     - name: Run tests
       run: cargo test --verbose
-      working-directory: git-remote-sol
+
