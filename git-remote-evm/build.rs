@@ -28,7 +28,7 @@ fn build_wallet_bridge() -> Result<(), Box<dyn Error>> {
         .arg("install")
         .output()?;
     if !output.status.success() {
-        return Err("failed to install wallet bridge dependencies".into());
+        return Err(String::from_utf8_lossy(&output.stderr).into());
     }
 
     println!("building wallet bridge at {}", bridge_path.display());
@@ -37,7 +37,7 @@ fn build_wallet_bridge() -> Result<(), Box<dyn Error>> {
         .args(&["run", "build"])
         .output()?;
     if !output.status.success() {
-        return Err("failed to build wallet bridge".into());
+        return Err(String::from_utf8_lossy(&output.stderr).into());
     }
 
     Ok(())
