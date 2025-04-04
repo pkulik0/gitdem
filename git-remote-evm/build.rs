@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::process::Command;
 
-static PACKAGE_MANAGER: &str = "yarn";
+static PACKAGE_MANAGER: &str = "npm";
 
 fn check_package_manager() -> Result<(), Box<dyn Error>> {
     let output = Command::new(PACKAGE_MANAGER).arg("--version").output()?;
@@ -34,7 +34,7 @@ fn build_wallet_bridge() -> Result<(), Box<dyn Error>> {
     println!("building wallet bridge at {}", bridge_path.display());
     let output = Command::new(PACKAGE_MANAGER)
         .current_dir(bridge_path)
-        .arg("build")
+        .args(&["run", "build"])
         .output()?;
     if !output.status.success() {
         return Err("failed to build wallet bridge".into());
