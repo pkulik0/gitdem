@@ -1,4 +1,4 @@
-use crate::remote_helper::RemoteHelperError;
+use crate::core::remote_helper::error::RemoteHelperError;
 use std::error::Error;
 use std::fmt;
 

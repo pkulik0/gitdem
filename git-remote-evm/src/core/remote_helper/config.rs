@@ -4,11 +4,11 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use crate::config::Config;
+use crate::core::config::Config;
 #[cfg(test)]
-use crate::config::mock::MockConfig;
-use crate::remote_helper::RemoteHelperError;
-use crate::remote_helper::Wallet;
+use crate::core::config::mock::MockConfig;
+use crate::core::remote_helper::error::RemoteHelperError;
+use crate::core::remote_helper::Wallet;
 #[cfg(test)]
 use std::collections::HashMap;
 

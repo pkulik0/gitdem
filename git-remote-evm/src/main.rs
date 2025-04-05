@@ -1,16 +1,15 @@
 mod args;
 mod cli;
-mod config;
+mod core;
 #[cfg(test)]
 mod integration_tests;
-mod remote_helper;
 
 use args::Args;
 use cli::CLI;
 #[cfg(not(feature = "mock"))]
-use remote_helper::evm::helper::Evm;
+use core::remote_helper::evm::Evm;
 #[cfg(feature = "mock")]
-use remote_helper::mock::Mock;
+use core::remote_helper::mock::Mock;
 
 use flexi_logger::{FileSpec, Logger, WriteMode};
 use log::{debug, error};
@@ -42,7 +41,7 @@ fn setup_panic_hook() {
 
 #[cfg(not(feature = "mock"))]
 fn construct_remote_helper(args: Args) -> Evm {
-    use config::git::GitConfig;
+    use core::config::git::GitConfig;
 
     debug!("using evm remote helper");
     let config = Box::new(GitConfig::new(args.directory().clone()));
@@ -51,10 +50,10 @@ fn construct_remote_helper(args: Args) -> Evm {
 
 #[cfg(feature = "mock")]
 fn construct_remote_helper(_: Args) -> Mock {
-    use config::mock::MockConfig;
+    use core::config::mock::MockConfig;
+    use core::hash::Hash;
+    use core::reference::{Keyword, Reference, Value};
     use log::warn;
-    use remote_helper::hash::Hash;
-    use remote_helper::reference::{Keyword, Reference, Value};
 
     warn!("using mock remote helper");
     Mock::new(vec![

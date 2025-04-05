@@ -1,7 +1,8 @@
-use crate::config::Config;
-use crate::remote_helper::evm::config::EvmConfig;
-use crate::remote_helper::{Reference, ReferencePush, RemoteHelper, RemoteHelperError};
 use crate::args::Args;
+use crate::core::config::Config;
+use crate::core::reference::{Reference, ReferencePush};
+use crate::core::remote_helper::config::EvmConfig;
+use crate::core::remote_helper::{RemoteHelper, RemoteHelperError};
 
 pub struct Evm {
     args: Args,

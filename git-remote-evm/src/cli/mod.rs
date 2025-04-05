@@ -8,11 +8,11 @@ use std::io::{BufRead, Write};
 mod error;
 
 #[cfg(test)]
-use crate::remote_helper::mock::Mock;
+use crate::core::reference::{Keyword, Value};
+use crate::core::remote_helper::RemoteHelper;
 #[cfg(test)]
-use crate::remote_helper::reference::{Keyword, Value};
-use crate::remote_helper::{
-    RemoteHelper,
+use crate::core::remote_helper::mock::Mock;
+use crate::core::{
     hash::Hash,
     reference::{Reference, ReferencePush},
 };
@@ -133,7 +133,7 @@ impl<'a> CLI<'a> {
                     return Err(CLIError::MalformedLine(line));
                 }
 
-                let hash = Hash::from_str(args[0])?;
+                let hash = Hash::from_str(args[0]).ok_or(CLIError::MalformedLine(line.clone()))?;
                 let ref_name = args[1].to_string();
                 let reference = Reference::new_with_hash(ref_name, hash);
 

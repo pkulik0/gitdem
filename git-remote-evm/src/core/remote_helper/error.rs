@@ -1,15 +1,5 @@
 use std::error::Error;
 
-use reference::{Reference, ReferencePush};
-
-pub mod evm;
-mod executor;
-pub mod hash;
-pub mod reference;
-
-#[cfg(any(test, feature = "mock"))]
-pub mod mock;
-
 #[derive(Debug, PartialEq)]
 pub enum RemoteHelperError {
     InvalidHash(String),
@@ -35,15 +25,4 @@ impl std::fmt::Display for RemoteHelperError {
             Self::UnknownProtocol(protocol) => write!(f, "unknown protocol: {}", protocol),
         }
     }
-}
-
-pub trait RemoteHelper {
-    fn capabilities(&self) -> Vec<&'static str>;
-    fn list(&self, is_for_push: bool) -> Result<Vec<Reference>, RemoteHelperError>;
-    fn fetch(&self, reference: &Reference) -> Result<(), RemoteHelperError>;
-    fn push(&self, reference: &ReferencePush) -> Result<(), RemoteHelperError>;
-}
-
-pub trait Wallet {
-    fn is_extension(&self) -> bool;
 }

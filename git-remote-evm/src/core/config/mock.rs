@@ -1,4 +1,4 @@
-use crate::config::Config;
+use super::Config;
 use std::collections::HashMap;
 
 pub struct MockConfig {

@@ -1,4 +1,5 @@
-use crate::remote_helper::{Reference, ReferencePush, RemoteHelper, RemoteHelperError};
+use crate::core::reference::{Reference, ReferencePush};
+use crate::core::remote_helper::{RemoteHelper, RemoteHelperError};
 
 pub struct Mock {
     refs: Vec<Reference>,
