@@ -2,12 +2,17 @@ use std::error::Error;
 
 #[derive(Debug, PartialEq)]
 pub enum RemoteHelperError {
-    InvalidHash(String),
-    InvalidRpc(String),
-    InvalidWalletType(String),
-    KeypairPathNotFound,
-    RpcNotSet(String),
-    UnknownProtocol(String),
+    Invalid {
+        what: String,
+        value: String,
+    },
+    Missing {
+        what: String,
+    },
+    Failure {
+        action: String,
+        details: Option<String>,
+    },
 }
 
 impl Error for RemoteHelperError {}
@@ -15,14 +20,16 @@ impl Error for RemoteHelperError {}
 impl std::fmt::Display for RemoteHelperError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::InvalidHash(hash) => write!(f, "invalid hash: {}", hash),
-            Self::InvalidRpc(rpc) => write!(f, "invalid rpc: {:?}", rpc),
-            Self::InvalidWalletType(wallet_type) => {
-                write!(f, "invalid wallet type: {}", wallet_type)
-            }
-            Self::KeypairPathNotFound => write!(f, "keypair path not found"),
-            Self::RpcNotSet(protocol) => write!(f, "rpc not set for protocol: {}", protocol),
-            Self::UnknownProtocol(protocol) => write!(f, "unknown protocol: {}", protocol),
+            Self::Invalid { what, value } => write!(f, "invalid {}: {}", what, value,),
+            Self::Missing { what } => write!(f, "missing: {}", what),
+            Self::Failure { action, details } => write!(
+                f,
+                "{} failed: {}",
+                action,
+                details
+                    .clone()
+                    .unwrap_or("details not provided".to_string())
+            ),
         }
     }
 }

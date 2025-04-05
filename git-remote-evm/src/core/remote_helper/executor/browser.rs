@@ -9,26 +9,32 @@ use std::str::FromStr;
 use super::Executor;
 use super::Transaction;
 use super::link_opener::LinkOpener;
-
+use crate::core::remote_helper::error::RemoteHelperError;
 #[derive(RustEmbed)]
 #[folder = "../wallet-bridge/dist/"]
 pub struct BridgeAssets;
 
 impl BridgeAssets {
-    pub fn from_url(url: &str) -> Result<(Vec<u8>, Mime), Box<dyn Error>> {
+    pub fn from_url(url: &str) -> Result<(Vec<u8>, Mime), RemoteHelperError> {
         let mut path = url.strip_prefix("/").unwrap_or("index.html");
         if path == "" {
             path = "index.html";
         }
 
-        let file = BridgeAssets::get(path).ok_or(format!("file not found: {}", path))?;
-        let ext = path
-            .split('.')
-            .last()
-            .ok_or(format!("invalid path: {}", path))?;
+        let file = BridgeAssets::get(path).ok_or(RemoteHelperError::Failure {
+            action: "getting asset".to_string(),
+            details: Some(format!("file not found: {}", path)),
+        })?;
+        let ext = path.split('.').last().ok_or(RemoteHelperError::Failure {
+            action: "getting asset extension".to_string(),
+            details: Some(format!("invalid path: {}", path)),
+        })?;
         let mime = mime_guess::from_ext(ext)
             .first()
-            .ok_or(format!("invalid path: {}", path))?;
+            .ok_or(RemoteHelperError::Failure {
+                action: "getting asset mime type".to_string(),
+                details: Some(format!("invalid path: {}", path)),
+            })?;
         Ok((file.data.to_vec(), mime))
     }
 }
@@ -46,10 +52,19 @@ pub struct Browser {
 }
 
 impl Browser {
-    pub fn new(link_opener: Box<dyn LinkOpener>) -> Result<Self, Box<dyn Error>> {
+    pub fn new(link_opener: Box<dyn LinkOpener>) -> Result<Self, RemoteHelperError> {
         let server =
-            tiny_http::Server::http("localhost:0").map_err(|_| "failed to create server")?;
-        let addr = server.server_addr().to_ip().ok_or("failed to get addr")?;
+            tiny_http::Server::http("localhost:0").map_err(|e| RemoteHelperError::Failure {
+                action: "creating browser executor".to_string(),
+                details: Some(e.to_string()),
+            })?;
+        let addr = server
+            .server_addr()
+            .to_ip()
+            .ok_or(RemoteHelperError::Failure {
+                action: "getting local server's address".to_string(),
+                details: None,
+            })?;
         Ok(Self {
             server,
             addr,
@@ -58,33 +73,49 @@ impl Browser {
     }
 }
 
-fn create_response(
-    data: &[u8],
-    mime: Mime,
-) -> Result<tiny_http::Response<Cursor<Vec<u8>>>, Box<dyn Error>> {
+fn create_response(data: &[u8], mime: Mime) -> Option<tiny_http::Response<Cursor<Vec<u8>>>> {
     let mut response = tiny_http::Response::from_data(data);
-    let content_type = tiny_http::Header::from_str(format!("Content-Type: {}", mime).as_str())
-        .map_err(|_| format!("failed to create content type header: {}", mime))?;
+    let content_type =
+        tiny_http::Header::from_str(format!("Content-Type: {}", mime).as_str()).ok()?;
     response.add_header(content_type);
-    Ok(response)
+    Some(response)
 }
 
 impl Executor for Browser {
-    fn execute(&self, transaction: Transaction) -> Result<(), Box<dyn Error>> {
+    fn execute(&self, transaction: Transaction) -> Result<(), RemoteHelperError> {
         self.link_opener.open(&format!("http://{}", self.addr))?;
         for request in self.server.incoming_requests() {
             trace!("browser executor request: {:?}", request.url());
             match request.url() {
                 "/done" => {
-                    request.respond(tiny_http::Response::from_string("done"))?;
+                    request
+                        .respond(tiny_http::Response::from_string("done"))
+                        .map_err(|e| RemoteHelperError::Failure {
+                            action: "sending executor response".to_string(),
+                            details: Some(e.to_string()),
+                        })?;
                     break;
                 }
                 "/favicon.ico" => {
-                    request.respond(tiny_http::Response::empty(404))?;
+                    request
+                        .respond(tiny_http::Response::empty(404))
+                        .map_err(|e| RemoteHelperError::Failure {
+                            action: "sending executor response".to_string(),
+                            details: Some(e.to_string()),
+                        })?;
                 }
                 _ => {
                     let (data, mime) = BridgeAssets::from_url(request.url())?;
-                    request.respond(create_response(&data, mime)?)?;
+                    let response = create_response(&data, mime).ok_or(
+                        RemoteHelperError::Failure {
+                            action: "creating response".to_string(),
+                            details: None,
+                        },
+                    )?;
+                    request.respond(response).map_err(|e| RemoteHelperError::Failure {
+                        action: "sending executor response".to_string(),
+                        details: Some(e.to_string()),
+                    })?;
                 }
             }
         }

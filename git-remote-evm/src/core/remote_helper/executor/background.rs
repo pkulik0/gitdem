@@ -1,6 +1,6 @@
 use super::Executor;
 use super::Transaction;
-use std::error::Error;
+use crate::core::remote_helper::error::RemoteHelperError;
 
 pub struct Background {}
 
@@ -11,7 +11,7 @@ impl Background {
 }
 
 impl Executor for Background {
-    fn execute(&self, transaction: Transaction) -> Result<(), Box<dyn Error>> {
+    fn execute(&self, transaction: Transaction) -> Result<(), RemoteHelperError> {
         Ok(())
     }
 }

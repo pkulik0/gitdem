@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
@@ -60,11 +59,16 @@ impl EvmConfig {
         match self.config.read(self.to_key("rpc").as_str()) {
             Some(rpc) => match RPC_REGEX.is_match(&rpc) {
                 true => Ok(rpc),
-                false => Err(RemoteHelperError::InvalidRpc(rpc)),
+                false => Err(RemoteHelperError::Invalid {
+                    what: "rpc".to_string(),
+                    value: rpc,
+                }),
             },
             None => match get_default_rpc(&self.protocol) {
                 Some(default_rpc) => Ok(default_rpc.to_string()),
-                None => Err(RemoteHelperError::RpcNotSet(self.protocol.clone())),
+                None => Err(RemoteHelperError::Missing {
+                    what: "rpc".to_string(),
+                }),
             },
         }
     }
@@ -74,11 +78,16 @@ impl EvmConfig {
             Some(wallet_type) => match wallet_type.as_str() {
                 "keypair" => match self.config.read(self.to_key("keypair").as_str()) {
                     Some(keypair_path) => Ok(EvmWallet::Keypair(PathBuf::from(keypair_path))),
-                    None => Err(RemoteHelperError::KeypairPathNotFound),
+                    None => Err(RemoteHelperError::Missing {
+                        what: "keypair path".to_string(),
+                    }),
                 },
                 "environment" => Ok(EvmWallet::Environment),
                 "browser" => Ok(EvmWallet::Browser),
-                _ => Err(RemoteHelperError::InvalidWalletType(wallet_type)),
+                _ => Err(RemoteHelperError::Invalid {
+                    what: "wallet type".to_string(),
+                    value: wallet_type,
+                }),
             },
             None => Ok(EvmWallet::Browser),
         }

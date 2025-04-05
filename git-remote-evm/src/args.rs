@@ -12,31 +12,16 @@ const ADDRESS_REGEX: LazyLock<Regex> =
 const EXECUTABLE_PREFIX: &str = "git-remote-";
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ArgsError {
-    ArgCount(usize, Vec<usize>),
-    InvalidAddress(String),
-    InvalidProtocol(String),
-    InvalidRemoteName(String),
+pub struct ArgsError {
+    what: String,
+    value: String,
 }
 
 impl Error for ArgsError {}
 
 impl std::fmt::Display for ArgsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::ArgCount(count, expected) => {
-                write!(
-                    f,
-                    "unexpected number of arguments: {} (allowed: {:?})",
-                    count, expected
-                )
-            }
-            Self::InvalidAddress(address) => write!(f, "invalid address: {:?}", address),
-            Self::InvalidProtocol(protocol) => write!(f, "invalid protocol: {:?}", protocol),
-            Self::InvalidRemoteName(remote_name) => {
-                write!(f, "invalid remote name: {:?}", remote_name)
-            }
-        }
+        write!(f, "invalid {}: {}", self.what, self.value)
     }
 }
 
@@ -85,7 +70,10 @@ impl Args {
                 } else {
                     let remote_name = args[1].clone();
                     if !validate_remote_name(&remote_name) {
-                        return Err(ArgsError::InvalidRemoteName(args[1].clone()));
+                        return Err(ArgsError {
+                            what: "remote name".to_string(),
+                            value: args[1].clone(),
+                        });
                     }
                     Some(remote_name)
                 };
@@ -97,7 +85,12 @@ impl Args {
                     address: Some(address.to_string()),
                 })
             }
-            _ => return Err(ArgsError::ArgCount(args.len(), vec![2, 3])),
+            _ => {
+                return Err(ArgsError {
+                    what: "argument count".to_string(),
+                    value: args.len().to_string(),
+                });
+            }
         }
     }
 }
@@ -109,7 +102,10 @@ fn address_from_arg<'a>(arg: &'a str, protocol: &str) -> Result<&'a str, ArgsErr
         None => arg,
     };
     match validate_address(address) {
-        false => Err(ArgsError::InvalidAddress(arg.to_string())),
+        false => Err(ArgsError {
+            what: "address".to_string(),
+            value: arg.to_string(),
+        }),
         true => Ok(address),
     }
 }
@@ -130,12 +126,18 @@ fn test_address_from_arg() {
     let address = address_from_arg(invalid_address, protocol).expect_err("expected error");
     assert_eq!(
         address,
-        ArgsError::InvalidAddress(invalid_address.to_string())
+        ArgsError {
+            what: "address".to_string(),
+            value: invalid_address.to_string(),
+        }
     );
 }
 
 fn protocol_from_arg(arg: &str) -> Result<&str, ArgsError> {
-    let err = ArgsError::InvalidProtocol(arg.to_string());
+    let err = ArgsError {
+        what: "protocol".to_string(),
+        value: arg.to_string(),
+    };
 
     let path = Path::new(arg);
     let last_component = path.components().last().ok_or(err.clone())?;
@@ -173,11 +175,20 @@ fn test_protocol_from_arg() {
     let protocol = protocol_from_arg("git-remote-").expect_err("expected error");
     assert_eq!(
         protocol,
-        ArgsError::InvalidProtocol("git-remote-".to_string())
+        ArgsError {
+            what: "protocol".to_string(),
+            value: "git-remote-".to_string(),
+        }
     );
 
     let protocol = protocol_from_arg("\\").expect_err("expected error");
-    assert_eq!(protocol, ArgsError::InvalidProtocol("\\".to_string()));
+    assert_eq!(
+        protocol,
+        ArgsError {
+            what: "protocol".to_string(),
+            value: "\\".to_string(),
+        }
+    );
 }
 
 fn validate_remote_name(name: &str) -> bool {
@@ -333,5 +344,11 @@ fn test_parse() {
     // Case 4: argc < 2
     let cmd_args = vec![executable.to_string()];
     let err = Args::parse(&cmd_args, git_dir.clone()).expect_err("expected error");
-    assert_eq!(err, ArgsError::ArgCount(1, vec![2, 3]));
+    assert_eq!(
+        err,
+        ArgsError {
+            what: "argument count".to_string(),
+            value: "1".to_string(),
+        }
+    );
 }

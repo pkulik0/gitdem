@@ -1,5 +1,4 @@
 pub mod config;
-mod contract;
 pub mod error;
 pub mod evm;
 mod executor;
