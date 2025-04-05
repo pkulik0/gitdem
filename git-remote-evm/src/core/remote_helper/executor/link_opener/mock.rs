@@ -1,6 +1,5 @@
+use super::LinkOpener;
 use std::error::Error;
-
-use super::browser::LinkOpener;
 
 pub struct MockLinkOpener;
 

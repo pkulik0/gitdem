@@ -1,14 +1,13 @@
+mod background;
+mod browser;
+mod link_opener;
+
 use std::error::Error;
 
-mod browser;
-use browser::{Browser, BrowserLinkOpener};
-mod background;
 use super::Wallet;
 use background::Background;
-
-mod assets;
-#[cfg(test)]
-mod mock;
+use browser::Browser;
+use link_opener::browser::BrowserLinkOpener;
 
 pub struct Transaction;
 

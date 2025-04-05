@@ -1,5 +1,6 @@
 use log::trace;
 use mime_guess::Mime;
+use rust_embed::RustEmbed;
 use std::error::Error;
 use std::io::Cursor;
 use std::net::SocketAddr;
@@ -7,21 +8,35 @@ use std::str::FromStr;
 
 use super::Executor;
 use super::Transaction;
-use super::assets::BridgeAssets;
-#[cfg(test)]
-use super::mock::MockLinkOpener;
+use super::link_opener::LinkOpener;
 
-pub trait LinkOpener {
-    fn open(&self, url: &str) -> Result<(), Box<dyn Error>>;
+#[derive(RustEmbed)]
+#[folder = "../wallet-bridge/dist/"]
+pub struct BridgeAssets;
+
+impl BridgeAssets {
+    pub fn from_url(url: &str) -> Result<(Vec<u8>, Mime), Box<dyn Error>> {
+        let mut path = url.strip_prefix("/").unwrap_or("index.html");
+        if path == "" {
+            path = "index.html";
+        }
+
+        let file = BridgeAssets::get(path).ok_or(format!("file not found: {}", path))?;
+        let ext = path
+            .split('.')
+            .last()
+            .ok_or(format!("invalid path: {}", path))?;
+        let mime = mime_guess::from_ext(ext)
+            .first()
+            .ok_or(format!("invalid path: {}", path))?;
+        Ok((file.data.to_vec(), mime))
+    }
 }
 
-pub struct BrowserLinkOpener;
-
-impl LinkOpener for BrowserLinkOpener {
-    fn open(&self, url: &str) -> Result<(), Box<dyn Error>> {
-        open::that(url)?;
-        Ok(())
-    }
+#[test]
+fn test_bridge_assets() {
+    assert!(BridgeAssets::iter().count() > 0);
+    assert!(BridgeAssets::get("index.html").is_some());
 }
 
 pub struct Browser {
@@ -79,6 +94,7 @@ impl Executor for Browser {
 
 #[test]
 fn test_browser() {
+    use super::link_opener::mock::MockLinkOpener;
     let browser = Browser::new(Box::new(MockLinkOpener)).expect("failed to create browser");
     browser
         .execute(Transaction)
