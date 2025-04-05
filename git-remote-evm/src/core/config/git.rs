@@ -1,44 +1,43 @@
 use super::Config;
-use std::process::Command;
 use std::path::PathBuf;
+use std::process::Command;
 #[cfg(test)]
 use tempfile::TempDir;
 
 pub struct GitConfig {
-  dir: PathBuf,
+    dir: PathBuf,
 }
 
 impl GitConfig {
-  pub fn new(dir: PathBuf) -> Self {
-    Self{dir}
-  }
+    pub fn new(dir: PathBuf) -> Self {
+        Self { dir }
+    }
 }
 
 impl Config for GitConfig {
-  fn read(&self, key: &str) -> Option<String> {
-    let cmd = Command::new("git")
-      .arg("config")
-      .arg("--get")
-      .arg(key)
-      .current_dir(self.dir.as_path())
-      .output()
-      .ok()?;
+    fn read(&self, key: &str) -> Option<String> {
+        let cmd = Command::new("git")
+            .arg("config")
+            .arg("--get")
+            .arg(key)
+            .current_dir(self.dir.as_path())
+            .output()
+            .ok()?;
 
-    let value = String::from_utf8(cmd.stdout).ok()?;
-    let trimmed = value.trim();
-  
-    match value.is_empty() {
-      true => None,
-      false => Some(trimmed.to_string()),
+        let value = String::from_utf8(cmd.stdout).ok()?;
+        let trimmed = value.trim();
+
+        match value.is_empty() {
+            true => None,
+            false => Some(trimmed.to_string()),
+        }
     }
-  }
 }
-
 
 #[cfg(test)]
 fn prepare_temp_repo() -> TempDir {
     let temp_dir = tempfile::tempdir().expect("failed to create temp dir");
-    
+
     let cmd = Command::new("git")
         .arg("init")
         .current_dir(temp_dir.path().to_path_buf())
@@ -69,7 +68,10 @@ fn test_git_config() {
         .output()
         .expect("failed to run git config");
     if !cmd.status.success() {
-        panic!("git config failed: {}", String::from_utf8_lossy(&cmd.stderr));
+        panic!(
+            "git config failed: {}",
+            String::from_utf8_lossy(&cmd.stderr)
+        );
     }
     let read_value = config.read(key).expect("failed to read config");
     assert_eq!(read_value, value.to_string());
@@ -82,7 +84,10 @@ fn test_git_config() {
         .output()
         .expect("failed to run git config");
     if !cmd.status.success() {
-        panic!("git config failed: {}", String::from_utf8_lossy(&cmd.stderr));
+        panic!(
+            "git config failed: {}",
+            String::from_utf8_lossy(&cmd.stderr)
+        );
     }
     assert!(config.read(key).is_none());
 }

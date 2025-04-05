@@ -5,7 +5,6 @@ pub mod mock;
 
 pub mod git;
 
-
 pub trait Config {
-  fn read(&self, key: &str) -> Option<String>;
+    fn read(&self, key: &str) -> Option<String>;
 }

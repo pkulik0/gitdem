@@ -7,8 +7,8 @@ use regex::Regex;
 use crate::core::config::Config;
 #[cfg(test)]
 use crate::core::config::mock::MockConfig;
-use crate::core::remote_helper::error::RemoteHelperError;
 use crate::core::remote_helper::Wallet;
+use crate::core::remote_helper::error::RemoteHelperError;
 #[cfg(test)]
 use std::collections::HashMap;
 
@@ -96,7 +96,7 @@ fn test_rpc() {
     let evm_config = EvmConfig::new(protocol.to_string(), Box::new(MockConfig::new()));
     let rpc = evm_config.get_rpc().expect("failed to get rpc");
     assert_eq!(rpc, DEFAULT_RPC_ARB1);
-    
+
     let protocol = "avax";
     let evm_config = EvmConfig::new(protocol.to_string(), Box::new(MockConfig::new()));
     let rpc = evm_config.get_rpc().expect("failed to get rpc");
@@ -117,12 +117,16 @@ fn test_rpc() {
         invalid_rpc.to_string(),
     )]));
     let evm_config = EvmConfig::new(protocol.to_string(), Box::new(mock_config));
-    evm_config.get_rpc().expect_err("should fail because of invalid rpc");
+    evm_config
+        .get_rpc()
+        .expect_err("should fail because of invalid rpc");
 
     let protocol = "unknown";
     let mock_config = MockConfig::new();
     let evm_config = EvmConfig::new(protocol.to_string(), Box::new(mock_config));
-    evm_config.get_rpc().expect_err("should fail because of unknown protocol");
+    evm_config
+        .get_rpc()
+        .expect_err("should fail because of unknown protocol");
 }
 
 #[test]

@@ -100,6 +100,10 @@ impl fmt::Display for ReferencePush {
 
 impl ReferencePush {
     pub fn new(src: String, dest: String, is_force: bool) -> Self {
-        Self { src, dest, is_force }
+        Self {
+            src,
+            dest,
+            is_force,
+        }
     }
 }

@@ -3,12 +3,12 @@ use std::error::Error;
 mod browser;
 use browser::{Browser, BrowserLinkOpener};
 mod background;
-use background::Background;
 use super::Wallet;
+use background::Background;
 
+mod assets;
 #[cfg(test)]
 mod mock;
-mod assets;
 
 pub struct Transaction;
 

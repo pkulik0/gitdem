@@ -80,5 +80,7 @@ impl Executor for Browser {
 #[test]
 fn test_browser() {
     let browser = Browser::new(Box::new(MockLinkOpener)).expect("failed to create browser");
-    browser.execute(Transaction).expect("failed to execute transaction");
+    browser
+        .execute(Transaction)
+        .expect("failed to execute transaction");
 }

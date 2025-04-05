@@ -2,11 +2,11 @@ use super::Executor;
 use super::Transaction;
 use std::error::Error;
 
-pub struct Background{}
+pub struct Background {}
 
 impl Background {
     pub fn new() -> Self {
-        Self{}
+        Self {}
     }
 }
 

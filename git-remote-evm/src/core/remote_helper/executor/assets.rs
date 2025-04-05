@@ -1,6 +1,6 @@
-use std::error::Error;
 use mime_guess::Mime;
 use rust_embed::RustEmbed;
+use std::error::Error;
 
 #[derive(RustEmbed)]
 #[folder = "../wallet-bridge/dist/"]
@@ -12,10 +12,15 @@ impl BridgeAssets {
         if path == "" {
             path = "index.html";
         }
-        
+
         let file = BridgeAssets::get(path).ok_or(format!("file not found: {}", path))?;
-        let ext = path.split('.').last().ok_or(format!("invalid path: {}", path))?;
-        let mime = mime_guess::from_ext(ext).first().ok_or(format!("invalid path: {}", path))?;
+        let ext = path
+            .split('.')
+            .last()
+            .ok_or(format!("invalid path: {}", path))?;
+        let mime = mime_guess::from_ext(ext)
+            .first()
+            .ok_or(format!("invalid path: {}", path))?;
         Ok((file.data.to_vec(), mime))
     }
 }

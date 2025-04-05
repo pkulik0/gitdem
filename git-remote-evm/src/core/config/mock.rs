@@ -7,7 +7,9 @@ pub struct MockConfig {
 
 impl MockConfig {
     pub fn new() -> Self {
-        Self { values: HashMap::new() }
+        Self {
+            values: HashMap::new(),
+        }
     }
 
     pub fn new_with_values(values: HashMap<String, String>) -> Self {
