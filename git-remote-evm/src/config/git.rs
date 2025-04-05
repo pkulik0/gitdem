@@ -1,5 +1,4 @@
 use crate::config::Config;
-use std::error::Error;
 use std::process::Command;
 use std::path::PathBuf;
 #[cfg(test)]
@@ -16,20 +15,21 @@ impl GitConfig {
 }
 
 impl Config for GitConfig {
-  fn read(&self, key: &str) -> Result<Option<String>, Box<dyn Error>> {
+  fn read(&self, key: &str) -> Option<String> {
     let cmd = Command::new("git")
       .arg("config")
       .arg("--get")
       .arg(key)
       .current_dir(self.dir.as_path())
-      .output()?;
+      .output()
+      .ok()?;
 
-    let value = String::from_utf8(cmd.stdout)?;
+    let value = String::from_utf8(cmd.stdout).ok()?;
     let trimmed = value.trim();
   
     match value.is_empty() {
-      true => Ok(None),
-      false => Ok(Some(trimmed.to_string())),
+      true => None,
+      false => Some(trimmed.to_string()),
     }
   }
 }
@@ -72,7 +72,7 @@ fn test_git_config() {
         panic!("git config failed: {}", String::from_utf8_lossy(&cmd.stderr));
     }
     let read_value = config.read(key).expect("failed to read config");
-    assert_eq!(read_value, Some(value.to_string()));
+    assert_eq!(read_value, value.to_string());
 
     let cmd = Command::new("git")
         .arg("config")
@@ -84,6 +84,5 @@ fn test_git_config() {
     if !cmd.status.success() {
         panic!("git config failed: {}", String::from_utf8_lossy(&cmd.stderr));
     }
-    let read_value = config.read(key).expect("failed to read config");
-    assert_eq!(read_value, None);
+    assert!(config.read(key).is_none());
 }

@@ -10,9 +10,10 @@ pub struct Evm {
 
 impl Evm {
     pub fn new(args: Args, config: Box<dyn Config>) -> Self {
+        let protocol = args.protocol().to_string();
         Self {
             args,
-            config: EvmConfig::new(config),
+            config: EvmConfig::new(protocol, config),
         }
     }
 }

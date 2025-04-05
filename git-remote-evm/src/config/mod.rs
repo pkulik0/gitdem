@@ -5,6 +5,7 @@ pub mod mock;
 
 pub mod git;
 
+
 pub trait Config {
-  fn read(&self, key: &str) -> Result<Option<String>, Box<dyn Error>>;
+  fn read(&self, key: &str) -> Option<String>;
 }

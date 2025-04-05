@@ -42,9 +42,64 @@ impl std::fmt::Display for ArgsError {
 
 #[derive(Debug)]
 pub struct Args {
+    protocol: String,
+    directory: PathBuf,
     remote_name: Option<String>,
     address: Option<String>,
-    directory: PathBuf,
+}
+
+impl Args {
+    pub fn protocol(&self) -> &str {
+        &self.protocol
+    }
+
+    pub fn remote_name(&self) -> Option<&str> {
+        self.remote_name.as_deref()
+    }
+
+    pub fn address(&self) -> Option<&str> {
+        self.address.as_deref()
+    }
+
+    pub fn directory(&self) -> &PathBuf {
+        &self.directory
+    }
+
+    pub fn parse(args: &[String], git_dir: PathBuf) -> Result<Self, ArgsError> {
+        let protocol = protocol_from_arg(&args[0])?;
+        match args.len() {
+            2 => {
+                let remote_name = args[1].clone();
+                return Ok(Self {
+                    protocol: protocol.to_string(),
+                    directory: git_dir,
+                    remote_name: Some(remote_name),
+                    address: None,
+                });
+            }
+            3 => {
+                let address = address_from_arg(&args[2], &protocol)?;
+
+                let remote_name = if args[1] == args[2] {
+                    None
+                } else {
+                    let remote_name = args[1].clone();
+                    if !validate_remote_name(&remote_name) {
+                        return Err(ArgsError::InvalidRemoteName(args[1].clone()));
+                    }
+                    Some(remote_name)
+                };
+
+                Ok(Self {
+                    protocol: protocol.to_string(),
+                    directory: git_dir,
+                    remote_name,
+                    address: Some(address.to_string()),
+                })
+            }
+            _ => return Err(ArgsError::ArgCount(args.len(), vec![2, 3])),
+        }
+    }
 }
 
 fn address_from_arg<'a>(arg: &'a str, protocol: &str) -> Result<&'a str, ArgsError> {
@@ -73,7 +128,10 @@ fn test_address_from_arg() {
 
     let invalid_address = "invalid _";
     let address = address_from_arg(invalid_address, protocol).expect_err("expected error");
-    assert_eq!(address, ArgsError::InvalidAddress(invalid_address.to_string()));
+    assert_eq!(
+        address,
+        ArgsError::InvalidAddress(invalid_address.to_string())
+    );
 }
 
 fn protocol_from_arg(arg: &str) -> Result<&str, ArgsError> {
@@ -96,15 +154,21 @@ fn protocol_from_arg(arg: &str) -> Result<&str, ArgsError> {
 
 #[test]
 fn test_protocol_from_arg() {
-    let protocol = protocol_from_arg("git-remote-sol").expect("failed to get protocol");
-    assert_eq!(protocol, "sol");
+    let protocol = protocol_from_arg("git-remote-eth").expect("failed to get protocol");
+    assert_eq!(protocol, "eth");
 
-    let protocol = protocol_from_arg("/some/path/git-remote-sol").expect("failed to get protocol");
-    assert_eq!(protocol, "sol");
+    let protocol = protocol_from_arg("git-remote-arb1").expect("failed to get protocol");
+    assert_eq!(protocol, "arb1");
 
-    let protocol = protocol_from_arg("/projects/git-remote-sol/build/git-remote-sol")
+    let protocol = protocol_from_arg("git-remote-base").expect("failed to get protocol");
+    assert_eq!(protocol, "base");
+
+    let protocol = protocol_from_arg("/some/path/git-remote-eth").expect("failed to get protocol");
+    assert_eq!(protocol, "eth");
+
+    let protocol = protocol_from_arg("/projects/git-remote-evm/build/git-remote-evm")
         .expect("failed to get protocol");
-    assert_eq!(protocol, "sol");
+    assert_eq!(protocol, "evm");
 
     let protocol = protocol_from_arg("git-remote-").expect_err("expected error");
     assert_eq!(
@@ -205,7 +269,7 @@ fn test_validate_address() {
 
     let address = "1234567890abcdef";
     assert!(validate_address(address));
-    // Failures    
+    // Failures
 
     let address = "0xc0ffee254729296a45a3885639AC7E10F9d54979!";
     assert!(!validate_address(address));
@@ -215,54 +279,6 @@ fn test_validate_address() {
 
     let address = "0x 123";
     assert!(!validate_address(address));
-}
-
-impl Args {
-    pub fn remote_name(&self) -> Option<&str> {
-        self.remote_name.as_deref()
-    }
-
-    pub fn address(&self) -> Option<&str> {
-        self.address.as_deref()
-    }
-
-    pub fn directory(&self) -> &PathBuf {
-        &self.directory
-    }
-
-    pub fn parse(args: &[String], git_dir: PathBuf) -> Result<Self, ArgsError> {
-        match args.len() {
-            2 => {
-                let remote_name = args[1].clone();
-                return Ok(Self {
-                    remote_name: Some(remote_name),
-                    address: None,
-                    directory: git_dir,
-                });
-            }
-            3 => {
-                let protocol = protocol_from_arg(&args[0])?;
-                let address = address_from_arg(&args[2], &protocol)?;
-
-                let remote_name = if args[1] == args[2] {
-                    None
-                } else {
-                    let remote_name = args[1].clone();
-                    if !validate_remote_name(&remote_name) {
-                        return Err(ArgsError::InvalidRemoteName(args[1].clone()));
-                    }
-                    Some(remote_name)
-                };
-
-                Ok(Self {
-                    remote_name,
-                    address: Some(address.to_string()),
-                    directory: git_dir,
-                })
-            }
-            _ => return Err(ArgsError::ArgCount(args.len(), vec![2, 3])),
-        }
-    }
 }
 
 #[test]

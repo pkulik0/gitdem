@@ -1,6 +1,5 @@
 use crate::config::Config;
 use std::collections::HashMap;
-use std::error::Error;
 
 pub struct MockConfig {
     values: HashMap<String, String>,
@@ -17,7 +16,7 @@ impl MockConfig {
 }
 
 impl Config for MockConfig {
-    fn read(&self, key: &str) -> Result<Option<String>, Box<dyn Error>> {
-        Ok(self.values.get(key).cloned())
+    fn read(&self, key: &str) -> Option<String> {
+        self.values.get(key).cloned()
     }
 }
