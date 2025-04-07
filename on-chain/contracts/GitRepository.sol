@@ -8,25 +8,24 @@ import "./external/SHA1.sol";
 /// @author pkulik0
 /// @notice This contract is used to store data of a single Git repository.
 contract GitRepository is Ownable2Step {
-    /// @dev SHA256 are highly recommended due to lower gas costs and better collision resistance.
-    bool isSHA256;
-
     /// @dev The reference to the default branch of the repository.
     string public defaultBranchRef = "refs/heads/main";
+    /// @dev SHA256 are highly recommended due to lower gas costs and better collision resistance.
+    bool _isSHA256;
 
     /// @dev keccak256(name) -> padded SHA1 or SHA256 hash
-    mapping(bytes32 => bytes32) references;
+    mapping(bytes32 => bytes32) _references;
     /// @dev The names are returned as strings so we can't use bytes32
-    string[] referenceNames;
-    /// @dev keccak256(name) -> index in referenceNames plus 1
-    mapping(bytes32 => uint256) referenceNameToIndex;
+    string[] _referenceNames;
+    /// @dev keccak256(name) -> index in _referenceNames plus 1
+    mapping(bytes32 => uint256) _referenceNameToIndex;
 
     /// @dev Padded SHA1 or SHA256 hash -> object data
-    mapping(bytes32 => bytes) objects;
+    mapping(bytes32 => bytes) _objects;
 
-    /// @param _isSHA256 Whether to use SHA256 hashes. Once set, it cannot be changed.
-    constructor(bool _isSHA256) Ownable(msg.sender) {
-        isSHA256 = _isSHA256;
+    /// @param isSHA256 Whether to use SHA256 hashes. Once set, it cannot be changed.
+    constructor(bool isSHA256) Ownable(msg.sender) {
+        _isSHA256 = isSHA256;
     }
 
     /// @notice Sets the default branch of the repository.
@@ -41,8 +40,8 @@ contract GitRepository is Ownable2Step {
     /// @param hash The hash of the object to retrieve.
     /// @return The object data.
     function getObject(bytes32 hash) public view returns (bytes memory) {
-        require(objects[hash].length > 0, "Object not found");
-        return objects[hash];
+        require(_objects[hash].length > 0, "Object not found");
+        return _objects[hash];
     }
 
     /// @notice Adds an object to the project.
@@ -51,11 +50,11 @@ contract GitRepository is Ownable2Step {
         require(object.length > 0, "Object is empty");
         require(hash != bytes32(0), "Hash is empty");
 
-        bytes32 computedHash = isSHA256 ? sha256(object) : SHA1.sha1(object);
+        bytes32 computedHash = _isSHA256 ? sha256(object) : SHA1.sha1(object);
         require(computedHash == hash, "Hash mismatch");
 
-        require(objects[hash].length == 0, "Object already exists");
-        objects[hash] = object;
+        require(_objects[hash].length == 0, "Object already exists");
+        _objects[hash] = object;
     }
 
     /// @dev A struct representing a normal reference.
@@ -86,12 +85,12 @@ contract GitRepository is Ownable2Step {
     /// @notice Lists all references in the project.
     /// @return A struct containing all direct and symbolic references.
     function listRefs() public view returns (Refs memory) {
-        uint256 count = referenceNames.length;
+        uint256 count = _referenceNames.length;
         RefNormal[] memory normal = new RefNormal[](count);
         for (uint256 i = 0; i < count; i++) {
             normal[i] = RefNormal({
-                name: referenceNames[i],
-                hash: references[keccak256(bytes(referenceNames[i]))]
+                name: _referenceNames[i],
+                hash: _references[keccak256(bytes(_referenceNames[i]))]
             });
         }
 
@@ -104,7 +103,7 @@ contract GitRepository is Ownable2Step {
         RefKV[] memory kv = new RefKV[](1);
         kv[0] = RefKV({
             name: "object-format",
-            value: isSHA256 ? "sha256" : "sha1"
+            value: _isSHA256 ? "sha256" : "sha1"
         });
 
         return Refs({
@@ -119,8 +118,8 @@ contract GitRepository is Ownable2Step {
     /// @return The hash of the reference.
     function getRef(string memory name) public view returns (bytes32) {
         bytes32 key = keccak256(bytes(name));
-        require(references[key] != bytes32(0), "Ref not found");
-        return references[key];
+        require(_references[key] != bytes32(0), "Ref not found");
+        return _references[key];
     }
 
     /// @notice Validates a reference name.
@@ -135,35 +134,35 @@ contract GitRepository is Ownable2Step {
     /// @param hash The hash of the reference to upsert.
     function upsertRef(string memory name, bytes32 hash) public onlyOwner {
         require(hash != bytes32(0), "Hash is empty");
-        require(objects[hash].length > 0, "Object not found");
+        require(_objects[hash].length > 0, "Object not found");
         validateRefName(name);
 
         bytes memory nameBytes = bytes(name);
         bytes32 nameKeccak = keccak256(nameBytes);
-        references[nameKeccak] = hash;
+        _references[nameKeccak] = hash;
 
-        if (referenceNameToIndex[nameKeccak] == 0) {
-            referenceNames.push(name);
+        if (_referenceNameToIndex[nameKeccak] == 0) {
+            _referenceNames.push(name);
             // offset by 1 to let 0 mean not found
-            referenceNameToIndex[nameKeccak] = referenceNames.length;
+            _referenceNameToIndex[nameKeccak] = _referenceNames.length;
         }
     }
 
     /// @notice Deletes a reference.
     /// @param name The name of the reference to delete.
     function deleteRef(string memory name) public onlyOwner {
-        require(referenceNames.length > 0, "No refs");
+        require(_referenceNames.length > 0, "No refs");
 
         bytes memory nameBytes = bytes(name);
         bytes32 nameKeccak = keccak256(nameBytes);
 
-        uint256 refIndex = referenceNameToIndex[nameKeccak];
+        uint256 refIndex = _referenceNameToIndex[nameKeccak];
         require(refIndex != 0, "Ref not found");
         refIndex--; // offset by 1 to let 0 mean not found
 
-        delete referenceNameToIndex[nameKeccak];
-        delete references[nameKeccak];
-        referenceNames[refIndex] = referenceNames[referenceNames.length - 1];
-        referenceNames.pop();
+        delete _referenceNameToIndex[nameKeccak];
+        delete _references[nameKeccak];
+        _referenceNames[refIndex] = _referenceNames[_referenceNames.length - 1];
+        _referenceNames.pop();
     }
 }
