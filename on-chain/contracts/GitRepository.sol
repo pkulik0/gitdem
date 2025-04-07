@@ -58,23 +58,60 @@ contract GitRepository is Ownable2Step {
         objects[hash] = object;
     }
 
-    struct Ref {
+    /// @dev A struct representing a normal reference.
+    struct RefNormal {
         string name;
         bytes32 hash;
     }
 
+    /// @dev A struct representing a symbolic reference.
+    struct RefSymbolic {
+        string name;
+        string target;
+    }
+
+    /// @dev A struct representing a key-value reference.
+    struct RefKV {
+        string name;
+        string value;
+    }
+
+    /// @dev A struct containing arrays of all reference types.
+    struct Refs {
+        RefNormal[] normal;
+        RefSymbolic[] symbolic;
+        RefKV[] kv;
+    }
+
     /// @notice Lists all references in the project.
-    /// @return An array of Ref structs containing the reference name and hash.
-    function listRefs() public view returns (Ref[] memory) {
+    /// @return A struct containing all direct and symbolic references.
+    function listRefs() public view returns (Refs memory) {
         uint256 count = referenceNames.length;
-        Ref[] memory response = new Ref[](count);
+        RefNormal[] memory normal = new RefNormal[](count);
         for (uint256 i = 0; i < count; i++) {
-            response[i] = Ref({
+            normal[i] = RefNormal({
                 name: referenceNames[i],
                 hash: references[keccak256(bytes(referenceNames[i]))]
             });
         }
-        return response;
+
+        RefSymbolic[] memory symbolic = new RefSymbolic[](1);
+        symbolic[0] = RefSymbolic({
+            name: "HEAD",
+            target: defaultBranchRef
+        });
+
+        RefKV[] memory kv = new RefKV[](1);
+        kv[0] = RefKV({
+            name: "object-format",
+            value: isSHA256 ? "sha256" : "sha1"
+        });
+
+        return Refs({
+            normal: normal,
+            symbolic: symbolic,
+            kv: kv
+        });
     }
 
     /// @notice Retrieves a reference by name.

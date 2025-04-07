@@ -271,15 +271,44 @@ describe("GitRepository", function () {
     });
 
     describe("Listing", function () {
+      it("has HEAD symbolic ref", async function () {
+        const { gitRepository } = await loadFixture(existingObjectFixture);
+
+        const refs = await gitRepository.listRefs();
+
+        expect(refs.symbolic.length).to.equal(1);
+        expect(refs.symbolic[0].name).to.equal("HEAD");
+        expect(refs.symbolic[0].target).to.equal("refs/heads/main");
+      });
+
+      it("has object-format kv ref", async function () {
+        const { gitRepository } = await loadFixture(existingObjectFixture);
+        const refs = await gitRepository.listRefs();
+        expect(refs.kv.length).to.equal(1);
+        expect(refs.kv[0].name).to.equal("object-format");
+        expect(refs.kv[0].value).to.equal("sha256");
+
+        const { gitRepository: gitRepositorySHA1 } = await loadFixture(existingObjectFixtureSHA1);
+        const refsSHA1 = await gitRepositorySHA1.listRefs();
+        expect(refsSHA1.kv.length).to.equal(1);
+        expect(refsSHA1.kv[0].name).to.equal("object-format");
+        expect(refsSHA1.kv[0].value).to.equal("sha1");
+      });
+
       it("can list a single ref", async function () {
         const { gitRepository, hash } = await loadFixture(existingObjectFixture);
 
         await gitRepository.upsertRef("refs/heads/main", hash);
 
         const refs = await gitRepository.listRefs();
-        expect(refs.length).to.equal(1);
-        expect(refs[0].name).to.equal("refs/heads/main");
-        expect(ethers.getBytes(refs[0].hash)).to.deep.equal(hash);
+
+        expect(refs.normal.length).to.equal(1);
+        expect(refs.normal[0].name).to.equal("refs/heads/main");
+        expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(hash);
+
+        expect(refs.symbolic.length).to.equal(1);
+        expect(refs.symbolic[0].name).to.equal("HEAD");
+        expect(refs.symbolic[0].target).to.equal("refs/heads/main");
       });
 
       it("can list multiple refs", async function () {
@@ -289,18 +318,20 @@ describe("GitRepository", function () {
         await gitRepository.upsertRef("refs/heads/other", otherHash);
 
         const refs = await gitRepository.listRefs();
-        expect(refs.length).to.equal(2);
-        expect(refs[0].name).to.equal("refs/heads/main");
-        expect(ethers.getBytes(refs[0].hash)).to.deep.equal(hash);
-        expect(refs[1].name).to.equal("refs/heads/other");
-        expect(ethers.getBytes(refs[1].hash)).to.deep.equal(otherHash);
+
+        expect(refs.normal.length).to.equal(2);
+        expect(refs.normal[0].name).to.equal("refs/heads/main");
+        expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(hash);
+        expect(refs.normal[1].name).to.equal("refs/heads/other");
+        expect(ethers.getBytes(refs.normal[1].hash)).to.deep.equal(otherHash);
       });
 
       it("can list with no refs", async function () {
         const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
 
         const refs = await gitRepository.listRefs();
-        expect(refs.length).to.equal(0);
+
+        expect(refs.normal.length).to.equal(0);
       });
 
       it("can list with SHA1 hash type", async function () {
@@ -309,9 +340,10 @@ describe("GitRepository", function () {
         await gitRepository.upsertRef("refs/heads/main", hash);
 
         const refs = await gitRepository.listRefs();
-        expect(refs.length).to.equal(1);
-        expect(refs[0].name).to.equal("refs/heads/main");
-        expect(ethers.getBytes(refs[0].hash)).to.deep.equal(hash);
+
+        expect(refs.normal.length).to.equal(1);
+        expect(refs.normal[0].name).to.equal("refs/heads/main");
+        expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(hash);
       });
 
       it("anyone can list refs", async function () {
@@ -322,9 +354,10 @@ describe("GitRepository", function () {
         await gitRepository.upsertRef("refs/heads/main", hash);
 
         const refs = await gitRepository.connect(otherAccount).listRefs();
-        expect(refs.length).to.equal(1);
-        expect(refs[0].name).to.equal("refs/heads/main");
-        expect(ethers.getBytes(refs[0].hash)).to.deep.equal(hash);
+
+        expect(refs.normal.length).to.equal(1);
+        expect(refs.normal[0].name).to.equal("refs/heads/main");
+        expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(hash);
       });
 
       it("can handle a large number of refs", async function () {
@@ -336,10 +369,11 @@ describe("GitRepository", function () {
         }
 
         const refs = await gitRepository.listRefs();
-        expect(refs.length).to.equal(count);
+
+        expect(refs.normal.length).to.equal(count);
         for (let i = 0; i < count; i++) {
-          expect(refs[i].name).to.equal(`refs/heads/ref${i}`);
-          expect(ethers.getBytes(refs[i].hash)).to.deep.equal(hash);
+          expect(refs.normal[i].name).to.equal(`refs/heads/ref${i}`);
+          expect(ethers.getBytes(refs.normal[i].hash)).to.deep.equal(hash);
         }
       });
     });
@@ -351,11 +385,15 @@ describe("GitRepository", function () {
         const refName = "refs/heads/main";
         await gitRepository.upsertRef(refName, hash);
         const refsBefore = await gitRepository.listRefs();
-        expect(refsBefore.length).to.equal(1);
+
+        expect(refsBefore.normal.length).to.equal(1);
+        expect(refsBefore.normal[0].name).to.equal(refName);
+        expect(ethers.getBytes(refsBefore.normal[0].hash)).to.deep.equal(hash);
 
         await gitRepository.deleteRef(refName);
         const refsAfter = await gitRepository.listRefs();
-        expect(refsAfter.length).to.equal(0);
+
+        expect(refsAfter.normal.length).to.equal(0);
       });
 
       it("correctly deletes the first one", async function () {
@@ -366,9 +404,10 @@ describe("GitRepository", function () {
 
         await gitRepository.deleteRef("refs/heads/one");
         const refs = await gitRepository.listRefs();
-        expect(refs.length).to.equal(1);
-        expect(refs[0].name).to.equal("refs/heads/two");
-        expect(ethers.getBytes(refs[0].hash)).to.deep.equal(otherHash);
+
+        expect(refs.normal.length).to.equal(1);
+        expect(refs.normal[0].name).to.equal("refs/heads/two");
+        expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(otherHash);
       });
 
       it("correctly deletes the last one", async function () {
@@ -379,9 +418,10 @@ describe("GitRepository", function () {
 
         await gitRepository.deleteRef("refs/heads/two");
         const refs = await gitRepository.listRefs();
-        expect(refs.length).to.equal(1);
-        expect(refs[0].name).to.equal("refs/heads/one");
-        expect(ethers.getBytes(refs[0].hash)).to.deep.equal(hash);
+
+        expect(refs.normal.length).to.equal(1);
+        expect(refs.normal[0].name).to.equal("refs/heads/one");
+        expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(hash);
       });
 
       it("correctly deletes the middle one", async function () {
@@ -393,11 +433,12 @@ describe("GitRepository", function () {
 
         await gitRepository.deleteRef("refs/heads/two");
         const refs = await gitRepository.listRefs();
-        expect(refs.length).to.equal(2);
-        expect(refs[0].name).to.equal("refs/heads/one");
-        expect(ethers.getBytes(refs[0].hash)).to.deep.equal(hash);
-        expect(refs[1].name).to.equal("refs/heads/three");
-        expect(ethers.getBytes(refs[1].hash)).to.deep.equal(otherHash);
+
+        expect(refs.normal.length).to.equal(2);
+        expect(refs.normal[0].name).to.equal("refs/heads/one");
+        expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(hash);
+        expect(refs.normal[1].name).to.equal("refs/heads/three");
+        expect(ethers.getBytes(refs.normal[1].hash)).to.deep.equal(otherHash);
       });
 
       it("can't delete if there are none", async function () {
