@@ -1,5 +1,5 @@
-use super::hash::Hash;
-use std::fmt;
+use super::{hash::Hash, remote_helper::error::RemoteHelperError};
+use std::{fmt, str::FromStr};
 
 // gitremote-helpers.adoc (line 449)
 #[derive(Clone, Debug, PartialEq)]
@@ -11,6 +11,21 @@ impl fmt::Display for Keys {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Keys::ObjectFormat => write!(f, "object-format"),
+        }
+    }
+}
+
+impl FromStr for Keys {
+    type Err = RemoteHelperError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "object-format" {
+            Ok(Keys::ObjectFormat)
+        } else {
+            Err(RemoteHelperError::Failure {
+                action: "parsing keys".to_string(),
+                details: Some("invalid key".to_string()),
+            })
         }
     }
 }

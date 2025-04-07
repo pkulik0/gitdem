@@ -9,6 +9,7 @@ mock = []
 
 [dependencies]
 alloy = { version = "0.13.0", features = ["full"] }
+async-trait = "0.1.88"
 flexi_logger = "0.29.8"
 log = "0.4.27"
 mime_guess = "2.0.5"

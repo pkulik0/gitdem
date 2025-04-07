@@ -5,6 +5,7 @@ use std::fmt;
 #[derive(Debug)]
 pub enum CLIError {
     MalformedLine(String),
+    InvalidArgument(String),
     Command(RemoteHelperError),
     UnknownCommand(String),
     IllegalState(String),
@@ -18,6 +19,7 @@ impl std::fmt::Display for CLIError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             CLIError::MalformedLine(line) => write!(f, "malformed line: {:?}", line),
+            CLIError::InvalidArgument(argument) => write!(f, "invalid argument: {:?}", argument),
             CLIError::Command(e) => write!(f, "command error: {}", e),
             CLIError::UnknownCommand(command) => write!(f, "unknown command: {:?}", command),
             CLIError::IllegalState(state) => {

@@ -1,23 +1,23 @@
 mod background;
 mod browser;
-mod contract;
 mod link_opener;
 
-use super::Wallet;
-use crate::core::remote_helper::error::RemoteHelperError;
+use super::{config::EvmWallet, Wallet};
+use crate::core::{reference::Reference, remote_helper::error::RemoteHelperError};
 use background::Background;
-use browser::Browser;
-use link_opener::browser::BrowserLinkOpener;
+// use browser::Browser;
+// use link_opener::browser::BrowserLinkOpener;
+use async_trait::async_trait;
 
-pub struct Transaction;
-
+#[async_trait]
 pub trait Executor {
-    fn execute(&self, transaction: Transaction) -> Result<(), RemoteHelperError>;
+    async fn list(&self) -> Result<Vec<Reference>, RemoteHelperError>;
 }
 
-pub fn create_executor(wallet: &dyn Wallet) -> Result<Box<dyn Executor>, RemoteHelperError> {
-    match wallet.is_extension() {
-        true => Ok(Box::new(Browser::new(Box::new(BrowserLinkOpener))?)),
-        false => Ok(Box::new(Background::new())),
+pub async fn create_executor(rpc: &str, wallet_type: EvmWallet) -> Result<Box<dyn Executor>, RemoteHelperError> {
+    match wallet_type.is_extension() {
+        // true => Ok(Box::new(Browser::new(Box::new(BrowserLinkOpener))?)),
+        true => todo!(),
+        false => Ok(Box::new(Background::new(wallet_type, rpc, [0; 20]).await?)),
     }
 }

@@ -4,6 +4,7 @@ use std::io::BufReader;
 #[cfg(test)]
 use std::io::Cursor;
 use std::io::{BufRead, Write};
+use std::str::FromStr;
 
 mod error;
 
@@ -119,7 +120,7 @@ impl<'a> CLI<'a> {
                     0 => false,
                     1 => match args[0] {
                         "for-push" => true,
-                        _ => return Err(CLIError::MalformedLine(line)),
+                        _ => return Err(CLIError::InvalidArgument(args[0].to_string())),
                     },
                     _ => return Err(CLIError::MalformedLine(line)),
                 };
@@ -133,7 +134,7 @@ impl<'a> CLI<'a> {
                     return Err(CLIError::MalformedLine(line));
                 }
 
-                let hash = Hash::from_str(args[0]).ok_or(CLIError::MalformedLine(line.clone()))?;
+                let hash = Hash::from_str(args[0]).map_err(|_| CLIError::InvalidArgument(args[0].to_string()))?;
                 let ref_name = args[1].to_string();
                 let reference = Reference::Normal {
                     name: ref_name,
