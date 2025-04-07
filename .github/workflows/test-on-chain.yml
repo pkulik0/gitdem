@@ -1,0 +1,23 @@
+name: Test On Chain
+
+on:
+  push:
+    paths:
+      - on-chain/**
+  pull_request:
+    paths:
+      - on-chain/**
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - name: Build
+        run: npm install
+        working-directory: on-chain
+      - name: Run tests
+        run: npx hardhat test
+        working-directory: on-chain
