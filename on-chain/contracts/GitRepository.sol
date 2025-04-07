@@ -52,7 +52,7 @@ contract GitRepository is Ownable2Step {
 
     /// @notice Adds an object to the project.
     /// @param object The object data.
-    function addObject(Object calldata object) public onlyOwner {
+    function addObject(Object calldata object) internal {
         require(object.data.length > 0, "Object is empty");
         require(object.hash != bytes32(0), "Hash is empty");
 
@@ -136,19 +136,18 @@ contract GitRepository is Ownable2Step {
     }
 
     /// @notice Upserts a reference.
-    /// @param name The name of the reference to upsert.
-    /// @param hash The hash of the reference to upsert.
-    function upsertRef(string calldata name, bytes32 hash) public onlyOwner {
-        require(hash != bytes32(0), "Hash is empty");
-        require(_objects[hash].length > 0, "Object not found");
-        validateRefName(name);
+    /// @param ref The reference to upsert.
+    function upsertRef(RefNormal calldata ref) internal {
+        require(ref.hash != bytes32(0), "Hash is empty");
+        require(_objects[ref.hash].length > 0, "Object not found");
+        validateRefName(ref.name);
 
-        bytes memory nameBytes = bytes(name);
+        bytes memory nameBytes = bytes(ref.name);
         bytes32 nameKeccak = keccak256(nameBytes);
-        _references[nameKeccak] = hash;
+        _references[nameKeccak] = ref.hash;
 
         if (_referenceNameToIndex[nameKeccak] == 0) {
-            _referenceNames.push(name);
+            _referenceNames.push(ref.name);
             // offset by 1 to let 0 mean not found
             _referenceNameToIndex[nameKeccak] = _referenceNames.length;
         }
@@ -156,7 +155,7 @@ contract GitRepository is Ownable2Step {
 
     /// @notice Deletes a reference.
     /// @param name The name of the reference to delete.
-    function deleteRef(string calldata name) public onlyOwner {
+    function deleteRef(string calldata name) internal {
         require(_referenceNames.length > 0, "No refs");
 
         bytes memory nameBytes = bytes(name);
@@ -170,5 +169,29 @@ contract GitRepository is Ownable2Step {
         delete _references[nameKeccak];
         _referenceNames[refIndex] = _referenceNames[_referenceNames.length - 1];
         _referenceNames.pop();
+    }
+
+    /// @dev A struct representing the data to push to the repository.
+    struct PushData {
+        Object[] objects;
+        RefNormal[] refs;
+    }
+
+    /// @notice Pushes objects and references to the repository.
+    /// @param data The data to push to the repository.
+    function pushObjectsAndRefs(PushData calldata data) public onlyOwner {
+        require(data.objects.length > 0 || data.refs.length > 0, "No data to push");
+
+        for (uint256 i = 0; i < data.objects.length; i++) {
+            addObject(data.objects[i]);
+        }
+
+        for (uint256 i = 0; i < data.refs.length; i++) {
+            if (data.refs[i].hash != bytes32(0)) {
+                upsertRef(data.refs[i]);
+            } else {
+                deleteRef(data.refs[i].name);
+            }
+        }
     }
 }

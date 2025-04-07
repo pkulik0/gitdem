@@ -36,6 +36,39 @@ describe("GitRepository", function () {
     return deployGitRepositoryFixtureBase(true);
   }
 
+  async function existingObjectFixtureBase(isSHA256: boolean) {
+    const { gitRepository, owner, otherAccount } = await deployGitRepositoryFixtureBase(isSHA256);
+
+    const data = crypto.randomBytes(100);
+    const hash = generateHash(isSHA256, data);
+
+    const otherData = crypto.randomBytes(100);
+    const otherHash = generateHash(isSHA256, otherData);
+
+    await gitRepository.pushObjectsAndRefs({
+      objects: [{ hash, data }, { hash: otherHash, data: otherData }],
+      refs: [],
+    });
+
+    return { gitRepository, owner, otherAccount, data, hash, otherData, otherHash };
+  }
+
+  async function existingObjectFixtureSHA1() {
+    return existingObjectFixtureBase(false);
+  }
+
+  async function existingObjectFixture() {
+    return existingObjectFixtureBase(true);
+  }
+
+  async function existingRefFixtureBase(isSHA256: boolean) {
+    const { gitRepository, owner, otherAccount } = await deployGitRepositoryFixtureBase(isSHA256);
+
+    const data = crypto.randomBytes(100);
+    const hash = generateHash(isSHA256, data);
+
+  }
+
   describe("Deployment", function () {
     it("should set the owner to the deployer", async function () {
       const { gitRepository, owner } = await loadFixture(deployGitRepositoryFixture);
@@ -55,83 +88,9 @@ describe("GitRepository", function () {
   });
 
   describe("Objects", function () {
-    describe("Adding", function () {
-      it("can add SHA256", async function () {
-        const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
-
-        const data = crypto.randomBytes(100);
-        const hash = generateHash(true, data);
-        await gitRepository.addObject({ hash, data });
-      });
-
-      it("can add SHA1", async function () {
-        const { gitRepository } = await loadFixture(deployGitRepositoryFixtureSHA1);
-
-        const data = crypto.randomBytes(100);
-        const hash = generateHash(false, data);
-        await gitRepository.addObject({ hash, data });
-      });
-
-      it("can't add with a SHA256 hash to a SHA1 repository", async function () {
-        const { gitRepository } = await loadFixture(deployGitRepositoryFixtureSHA1);
-
-        const data = crypto.randomBytes(100);
-        const hash = generateHash(true, data);
-        await expect(gitRepository.addObject({ hash, data })).to.be.revertedWith("Hash mismatch");
-      });
-
-      it("can't add with a SHA1 hash to a SHA256 repository", async function () {
-        const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
-
-        const data = crypto.randomBytes(100);
-        const hash = generateHash(false, data);
-        await expect(gitRepository.addObject({ hash, data })).to.be.revertedWith("Hash mismatch");
-      });
-
-      it("can't add with an empty hash", async function () {
-        const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
-
-        const data = crypto.randomBytes(100);
-        const hash = new Uint8Array(32);
-        await expect(gitRepository.addObject({ hash, data })).to.be.revertedWith("Hash is empty");
-      });
-
-      it("can't add an empty object", async function () {
-        const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
-
-        const data = new Uint8Array(0);
-        const hash = generateHash(true, data);
-        await expect(gitRepository.addObject({ hash, data })).to.be.revertedWith("Object is empty");
-      });
-
-      it("can't add if not the owner", async function () {
-        const { gitRepository, otherAccount } = await loadFixture(
-          deployGitRepositoryFixture
-        );
-
-        const hash = generateHash(true);
-        await expect(gitRepository.connect(otherAccount).addObject({ hash, data: new Uint8Array(32) }))
-          .to.be.revertedWithCustomError(gitRepository, "OwnableUnauthorizedAccount")
-          .withArgs(otherAccount.address);
-      });
-
-      it("can't add if the object already exists", async function () {
-        const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
-
-        const data = crypto.randomBytes(100);
-        const hash = generateHash(true, data);
-        await gitRepository.addObject({ hash, data });
-        await expect(gitRepository.addObject({ hash, data })).to.be.revertedWith("Object already exists");
-      });
-    });
-
     describe("Getting", function () {
       it("can get", async function () {
-        const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
-
-        const data = crypto.randomBytes(100);
-        const hash = generateHash(true, data);
-        await gitRepository.addObject({ hash, data });
+        const { gitRepository, data, hash } = await loadFixture(existingObjectFixture);
 
         const object = await gitRepository.getObject(hash);
         expect(ethers.getBytes(object)).to.deep.equal(data);
@@ -145,22 +104,14 @@ describe("GitRepository", function () {
       });
 
       it("can't get if the object doesn't exist", async function () {
-        const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
+        const { gitRepository } = await loadFixture(existingObjectFixture);
 
-        const data = crypto.randomBytes(100);
-        const hash = generateHash(true, data);
-        await gitRepository.addObject({ hash, data });
-
-        const hash2 = generateHash(true);
-        await expect(gitRepository.getObject(hash2)).to.be.revertedWith("Object not found");
+        const otherHash = generateHash(true);
+        await expect(gitRepository.getObject(otherHash)).to.be.revertedWith("Object not found");
       });
 
       it("anyone can get an object", async function () {
-        const { gitRepository, otherAccount } = await loadFixture(deployGitRepositoryFixture);
-
-        const data = crypto.randomBytes(100);
-        const hash = generateHash(true, data);
-        await gitRepository.addObject({ hash, data });
+        const { gitRepository, otherAccount, data, hash } = await loadFixture(existingObjectFixture);
 
         const object = await gitRepository.connect(otherAccount).getObject(hash);
         expect(ethers.getBytes(object)).to.deep.equal(data);
@@ -169,33 +120,20 @@ describe("GitRepository", function () {
   });
 
   describe("Refs", function () {
-    async function existingObjectFixtureBase(isSHA256: boolean) {
-      const { gitRepository, owner, otherAccount } = await deployGitRepositoryFixtureBase(isSHA256);
-
-      const data = crypto.randomBytes(100);
-      const hash = generateHash(isSHA256, data);
-      await gitRepository.addObject({ hash, data });
-
-      const otherData = crypto.randomBytes(100);
-      const otherHash = generateHash(isSHA256, otherData);
-      await gitRepository.addObject({ hash: otherHash, data: otherData });
-
-      return { gitRepository, owner, otherAccount, hash, otherHash };
-    }
-
-    async function existingObjectFixtureSHA1() {
-      return existingObjectFixtureBase(false);
-    }
-
-    async function existingObjectFixture() {
-      return existingObjectFixtureBase(true);
-    }
-
     describe("Getting", function () {
       it("can get", async function () {
-        const { gitRepository, hash } = await loadFixture(existingObjectFixture);
+        const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
 
-        await gitRepository.upsertRef("refs/heads/main", hash);
+        const data = crypto.randomBytes(100);
+        const hash = generateHash(true, data);
+
+        await gitRepository.pushObjectsAndRefs({
+          objects: [{ hash, data }],
+          refs: [{
+            name: "refs/heads/main",
+            hash: hash,
+          }],
+        })
 
         const value = await gitRepository.getRef("refs/heads/main");
         expect(ethers.getBytes(value)).to.deep.equal(hash);
@@ -205,68 +143,6 @@ describe("GitRepository", function () {
         const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
 
         await expect(gitRepository.getRef("refs/heads/main")).to.be.revertedWith("Ref not found");
-      });
-    });
-
-    describe("Upserting", function () {
-      it("can add with a SHA256 hash", async function () {
-        const { gitRepository, hash } = await loadFixture(existingObjectFixture);
-
-        await gitRepository.upsertRef("refs/heads/main", hash);
-
-        const value = await gitRepository.getRef("refs/heads/main");
-        expect(ethers.getBytes(value)).to.deep.equal(hash);
-      });
-
-      it("can add with a SHA1 hash", async function () {
-        const { gitRepository, hash } = await loadFixture(existingObjectFixtureSHA1);
-        await gitRepository.upsertRef("refs/heads/main", hash);
-      });
-
-      it("can't add with non-existent hash", async function () {
-        const { gitRepository } = await loadFixture(existingObjectFixture);
-
-        const hash = generateHash(true);
-        await expect(gitRepository.upsertRef("refs/heads/main", hash)).to.be.revertedWith(
-          "Object not found"
-        );
-      });
-
-      it("can't add with an empty hash", async function () {
-        const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
-
-        const hash = new Uint8Array(32);
-        await expect(gitRepository.upsertRef("refs/heads/main", hash)).to.be.revertedWith(
-          "Hash is empty"
-        );
-      });
-
-      it("can't add if not the owner", async function () {
-        const { gitRepository, otherAccount, hash } = await loadFixture(existingObjectFixture);
-
-        await expect(gitRepository.connect(otherAccount).upsertRef("refs/heads/main", hash))
-          .to.be.revertedWithCustomError(gitRepository, "OwnableUnauthorizedAccount")
-          .withArgs(otherAccount.address);
-      });
-
-      it("can't add with an invalid name", async function () {
-        const { gitRepository, hash } = await loadFixture(existingObjectFixture);
-
-        await expect(gitRepository.upsertRef("", hash)).to.be.revertedWith(
-          "Name is invalid"
-        );
-      });
-
-      it("can update with a new hash", async function () {
-        const { gitRepository, hash, otherHash } = await loadFixture(existingObjectFixture);
-
-        await gitRepository.upsertRef("refs/heads/main", hash);
-        const value = await gitRepository.getRef("refs/heads/main");
-        expect(ethers.getBytes(value)).to.deep.equal(hash);
-
-        await gitRepository.upsertRef("refs/heads/main", otherHash);
-        const newValue = await gitRepository.getRef("refs/heads/main");
-        expect(ethers.getBytes(newValue)).to.deep.equal(otherHash);
       });
     });
 
@@ -298,7 +174,13 @@ describe("GitRepository", function () {
       it("can list a single ref", async function () {
         const { gitRepository, hash } = await loadFixture(existingObjectFixture);
 
-        await gitRepository.upsertRef("refs/heads/main", hash);
+        await gitRepository.pushObjectsAndRefs({
+          objects: [],
+          refs: [{
+            name: "refs/heads/main",
+            hash: hash,
+          }],
+        });
 
         const refs = await gitRepository.listRefs();
 
@@ -314,8 +196,16 @@ describe("GitRepository", function () {
       it("can list multiple refs", async function () {
         const { gitRepository, hash, otherHash } = await loadFixture(existingObjectFixture);
 
-        await gitRepository.upsertRef("refs/heads/main", hash);
-        await gitRepository.upsertRef("refs/heads/other", otherHash);
+        await gitRepository.pushObjectsAndRefs({
+          objects: [],
+          refs: [{
+            name: "refs/heads/main",
+            hash: hash,
+          }, {
+            name: "refs/heads/other",
+            hash: otherHash,
+          }],
+        });
 
         const refs = await gitRepository.listRefs();
 
@@ -337,7 +227,13 @@ describe("GitRepository", function () {
       it("can list with SHA1 hash type", async function () {
         const { gitRepository, hash } = await loadFixture(existingObjectFixtureSHA1);
 
-        await gitRepository.upsertRef("refs/heads/main", hash);
+        await gitRepository.pushObjectsAndRefs({
+          objects: [],
+          refs: [{
+            name: "refs/heads/main",
+            hash: hash,
+          }],
+        });
 
         const refs = await gitRepository.listRefs();
 
@@ -351,7 +247,13 @@ describe("GitRepository", function () {
           existingObjectFixture
         );
 
-        await gitRepository.upsertRef("refs/heads/main", hash);
+        await gitRepository.pushObjectsAndRefs({
+          objects: [],
+          refs: [{
+            name: "refs/heads/main",
+            hash: hash,
+          }],
+        });
 
         const refs = await gitRepository.connect(otherAccount).listRefs();
 
@@ -363,10 +265,18 @@ describe("GitRepository", function () {
       it("can handle a large number of refs", async function () {
         const { gitRepository, hash } = await loadFixture(existingObjectFixture);
 
-        const count = 512;
+        const count = 256;
+        const refsToPush = [];
         for (let i = 0; i < count; i++) {
-          await gitRepository.upsertRef(`refs/heads/ref${i}`, hash);
+          refsToPush.push({
+            name: `refs/heads/ref${i}`,
+            hash: hash,
+          });
         }
+        await gitRepository.pushObjectsAndRefs({
+          objects: [],
+          refs: refsToPush,
+        });
 
         const refs = await gitRepository.listRefs();
 
@@ -377,96 +287,287 @@ describe("GitRepository", function () {
         }
       });
     });
+  });
 
-    describe("Deleting", function () {
-      it("can delete", async function () {
-        const { gitRepository, hash } = await loadFixture(existingObjectFixture);
+  describe("Pushing", function () {
+    it("can push with a SHA256 hash", async function () {
+      const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
 
-        const refName = "refs/heads/main";
-        await gitRepository.upsertRef(refName, hash);
-        const refsBefore = await gitRepository.listRefs();
+      const data = crypto.randomBytes(100);
+      const hash = generateHash(true, data);
 
-        expect(refsBefore.normal.length).to.equal(1);
-        expect(refsBefore.normal[0].name).to.equal(refName);
-        expect(ethers.getBytes(refsBefore.normal[0].hash)).to.deep.equal(hash);
+      await gitRepository.pushObjectsAndRefs({
+        objects: [{ hash, data }],
+        refs: [{
+          name: "refs/heads/main",
+          hash: hash,
+        }],
+      })
+    });
 
-        await gitRepository.deleteRef(refName);
-        const refsAfter = await gitRepository.listRefs();
+    it("can push with a SHA1 hash", async function () {
+      const { gitRepository } = await loadFixture(deployGitRepositoryFixtureSHA1);
 
-        expect(refsAfter.normal.length).to.equal(0);
+      const data = crypto.randomBytes(100);
+      const hash = generateHash(false, data);
+
+      await gitRepository.pushObjectsAndRefs({
+        objects: [{ hash, data }],
+        refs: [{
+          name: "refs/heads/main",
+          hash: hash,
+        }],
+      })
+    });
+
+    it("can't push with no data", async function () {
+      const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
+
+      await expect(gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [],
+      })).to.be.revertedWith("No data to push");
+    });
+
+    it("can't push an empty object", async function () {
+      const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
+
+      const data = new Uint8Array(0);
+      const hash = generateHash(true, data);
+
+      await expect(gitRepository.pushObjectsAndRefs({
+        objects: [{ hash, data }],
+        refs: [{
+          name: "refs/heads/main",
+          hash: hash,
+        }],
+      })).to.be.revertedWith("Object is empty");
+    });
+
+    it("can't push with non-existent hash", async function () {
+      const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
+
+      const hash = generateHash(true);
+      await expect(gitRepository.pushObjectsAndRefs({
+        objects: [], // No objects
+        refs: [{
+          name: "refs/heads/main",
+          hash: hash,
+        }],
+      })).to.be.revertedWith("Object not found");
+    });
+
+    it("can't push if not the owner", async function () {
+      const { gitRepository, otherAccount } = await loadFixture(deployGitRepositoryFixture);
+
+      const data = crypto.randomBytes(100);
+      const hash = generateHash(true, data);
+      await expect(gitRepository.connect(otherAccount).pushObjectsAndRefs({
+        objects: [{ hash, data }],
+        refs: [{
+          name: "refs/heads/main",
+          hash: hash,
+        }],
+      })).to.be.revertedWithCustomError(gitRepository, "OwnableUnauthorizedAccount")
+        .withArgs(otherAccount.address);
+    });
+
+    it("can't push a ref with an invalid name", async function () {
+      const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
+
+      const data = crypto.randomBytes(100);
+      const hash = generateHash(true, data);
+
+      await expect(gitRepository.pushObjectsAndRefs({
+        objects: [{ hash, data }],
+        refs: [{
+          name: "",
+          hash: hash,
+        }],
+      })).to.be.revertedWith("Name is invalid");
+    });
+
+    it("can update a ref with a new hash", async function () {
+      const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
+
+      const data = crypto.randomBytes(100);
+      const hash = generateHash(true, data);
+
+      await gitRepository.pushObjectsAndRefs({
+        objects: [{ hash, data }],
+        refs: [{
+          name: "refs/heads/main",
+          hash: hash,
+        }],
+      });
+      const value = await gitRepository.getRef("refs/heads/main");
+      expect(ethers.getBytes(value)).to.deep.equal(hash);
+
+      const otherData = crypto.randomBytes(100);
+      const otherHash = generateHash(true, otherData);
+
+      await gitRepository.pushObjectsAndRefs({
+        objects: [{ hash: otherHash, data: otherData }],
+        refs: [{
+          name: "refs/heads/main",
+          hash: otherHash,
+        }],
+      });
+      const newValue = await gitRepository.getRef("refs/heads/main");
+      expect(ethers.getBytes(newValue)).to.deep.equal(otherHash);
+    });
+
+    it("can delete a ref", async function () {
+      const { gitRepository, hash } = await loadFixture(existingObjectFixture);
+
+      const refName = "refs/heads/main";
+      await gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [{
+          name: refName,
+          hash: hash,
+        }],
+      });
+      const refsBefore = await gitRepository.listRefs();
+
+      expect(refsBefore.normal.length).to.equal(1);
+      expect(refsBefore.normal[0].name).to.equal(refName);
+      expect(ethers.getBytes(refsBefore.normal[0].hash)).to.deep.equal(hash);
+
+      await gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [{
+          name: refName,
+          hash: new Uint8Array(32),
+        }],
+      });
+      const refsAfter = await gitRepository.listRefs();
+
+      expect(refsAfter.normal.length).to.equal(0);
+    });
+
+    it("correctly deletes the first ref", async function () {
+      const { gitRepository, hash, otherHash } = await loadFixture(existingObjectFixture);
+
+      await gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [{
+          name: "refs/heads/one",
+          hash: hash,
+        }, {
+          name: "refs/heads/two",
+          hash: otherHash,
+        }],
       });
 
-      it("correctly deletes the first one", async function () {
-        const { gitRepository, hash, otherHash } = await loadFixture(existingObjectFixture);
+      await gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [{
+          name: "refs/heads/one",
+          hash: new Uint8Array(32),
+        }],
+      });
+      const refs = await gitRepository.listRefs();
 
-        await gitRepository.upsertRef("refs/heads/one", hash);
-        await gitRepository.upsertRef("refs/heads/two", otherHash);
+      expect(refs.normal.length).to.equal(1);
+      expect(refs.normal[0].name).to.equal("refs/heads/two");
+      expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(otherHash);
+    });
 
-        await gitRepository.deleteRef("refs/heads/one");
-        const refs = await gitRepository.listRefs();
+    it("correctly deletes the last ref", async function () {
+      const { gitRepository, hash, otherHash } = await loadFixture(existingObjectFixture);
 
-        expect(refs.normal.length).to.equal(1);
-        expect(refs.normal[0].name).to.equal("refs/heads/two");
-        expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(otherHash);
+      await gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [{
+          name: "refs/heads/one",
+          hash: hash,
+        }, {
+          name: "refs/heads/two",
+          hash: otherHash,
+        }],
       });
 
-      it("correctly deletes the last one", async function () {
-        const { gitRepository, hash, otherHash } = await loadFixture(existingObjectFixture);
+      await gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [{
+          name: "refs/heads/two",
+          hash: new Uint8Array(32),
+        }],
+      });
+      const refs = await gitRepository.listRefs();
 
-        await gitRepository.upsertRef("refs/heads/one", hash);
-        await gitRepository.upsertRef("refs/heads/two", otherHash);
+      expect(refs.normal.length).to.equal(1);
+      expect(refs.normal[0].name).to.equal("refs/heads/one");
+      expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(hash);
+    });
 
-        await gitRepository.deleteRef("refs/heads/two");
-        const refs = await gitRepository.listRefs();
+    it("correctly deletes a ref from the middle", async function () {
+      const { gitRepository, hash, otherHash } = await loadFixture(existingObjectFixture);
 
-        expect(refs.normal.length).to.equal(1);
-        expect(refs.normal[0].name).to.equal("refs/heads/one");
-        expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(hash);
+      await gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [{
+          name: "refs/heads/one",
+          hash: hash,
+        }, {
+          name: "refs/heads/two",
+          hash: otherHash,
+        }, {
+          name: "refs/heads/three",
+          hash: otherHash,
+        }],
       });
 
-      it("correctly deletes the middle one", async function () {
-        const { gitRepository, hash, otherHash } = await loadFixture(existingObjectFixture);
+      await gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [{
+          name: "refs/heads/two",
+          hash: new Uint8Array(32),
+        }],
+      });
+      const refs = await gitRepository.listRefs();
 
-        await gitRepository.upsertRef("refs/heads/one", hash);
-        await gitRepository.upsertRef("refs/heads/two", otherHash);
-        await gitRepository.upsertRef("refs/heads/three", otherHash);
+      expect(refs.normal.length).to.equal(2);
+      expect(refs.normal[0].name).to.equal("refs/heads/one");
+      expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(hash);
+      expect(refs.normal[1].name).to.equal("refs/heads/three");
+      expect(ethers.getBytes(refs.normal[1].hash)).to.deep.equal(otherHash);
+    });
 
-        await gitRepository.deleteRef("refs/heads/two");
-        const refs = await gitRepository.listRefs();
+    it("can't delete a ref if there are none", async function () {
+      const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
 
-        expect(refs.normal.length).to.equal(2);
-        expect(refs.normal[0].name).to.equal("refs/heads/one");
-        expect(ethers.getBytes(refs.normal[0].hash)).to.deep.equal(hash);
-        expect(refs.normal[1].name).to.equal("refs/heads/three");
-        expect(ethers.getBytes(refs.normal[1].hash)).to.deep.equal(otherHash);
+      await expect(gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [{
+          name: "refs/heads/some-ref",
+          hash: new Uint8Array(32),
+        }],
+      })).to.be.revertedWith("No refs");
+    });
+
+    it("can't delete a ref that doesn't exist", async function () {
+      const { gitRepository, hash } = await loadFixture(existingObjectFixture);
+
+      await gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [{
+          name: "refs/heads/some-ref",
+          hash: hash,
+        }],
       });
 
-      it("can't delete if there are none", async function () {
-        const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
-
-        await expect(gitRepository.deleteRef("refs/heads/main")).to.be.revertedWith("No refs");
-      });
-
-      it("can't delete a ref that doesn't exist", async function () {
-        const { gitRepository, hash } = await loadFixture(existingObjectFixture);
-
-        await gitRepository.upsertRef("refs/heads/main", hash);
-
-        await expect(gitRepository.deleteRef("refs/heads/other")).to.be.revertedWith("Ref not found");
-      });
-
-      it("can't delete if not the owner", async function () {
-        const { gitRepository, otherAccount, hash } = await loadFixture(existingObjectFixture);
-
-        const refName = "refs/heads/main";
-        await gitRepository.upsertRef(refName, hash);
-
-        await expect(gitRepository.connect(otherAccount).deleteRef(refName))
-          .to.be.revertedWithCustomError(gitRepository, "OwnableUnauthorizedAccount")
-          .withArgs(otherAccount.address);
-      });
+      await expect(gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [{
+          name: "refs/heads/other",
+          hash: new Uint8Array(32),
+        }],
+      })).to.be.revertedWith("Ref not found");
     });
   });
+
 
   describe("Default branch", function () {
     it("can get", async function () {
