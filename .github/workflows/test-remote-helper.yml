@@ -5,11 +5,12 @@ on:
     paths:
       - git-remote-evm/**
       - wallet-bridge/**
+      - on-chain/contracts/**
   pull_request:
     paths:
       - git-remote-evm/**
       - wallet-bridge/**
-
+      - on-chain/contracts/**
 env:
   CARGO_TERM_COLOR: always
 
