@@ -426,4 +426,28 @@ describe("GitRepository", function () {
       });
     });
   });
+
+  describe("Default branch", function () {
+    it("can get", async function () {
+      const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
+
+      const refName = "refs/heads/main";
+      expect(await gitRepository.defaultBranchRef()).to.equal(refName);
+    });
+
+    it("can change", async function () {
+      const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
+
+      const branchName = "some-branch";
+      await gitRepository.setDefaultBranch(branchName);
+      const refName = "refs/heads/" + branchName;
+      expect(await gitRepository.defaultBranchRef()).to.equal(refName);
+    });
+
+    it("can't change to an empty string", async function () {
+      const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
+
+      await expect(gitRepository.setDefaultBranch("")).to.be.revertedWith("Default branch is empty");
+    });
+  });
 });

@@ -11,6 +11,9 @@ contract GitRepository is Ownable2Step {
     /// @dev SHA256 are highly recommended due to lower gas costs and better collision resistance.
     bool isSHA256;
 
+    /// @dev The reference to the default branch of the repository.
+    string public defaultBranchRef = "refs/heads/main";
+
     /// @dev keccak256(name) -> padded SHA1 or SHA256 hash
     mapping(bytes32 => bytes32) references;
     /// @dev The names are returned as strings so we can't use bytes32
@@ -24,6 +27,14 @@ contract GitRepository is Ownable2Step {
     /// @param _isSHA256 Whether to use SHA256 hashes. Once set, it cannot be changed.
     constructor(bool _isSHA256) Ownable(msg.sender) {
         isSHA256 = _isSHA256;
+    }
+
+    /// @notice Sets the default branch of the repository.
+    /// @param newDefaultBranch The name of the new default branch.
+    function setDefaultBranch(string memory newDefaultBranch) public onlyOwner {
+        require(bytes(newDefaultBranch).length > 0, "Default branch is empty");
+        validateRefName(newDefaultBranch);
+        defaultBranchRef = string.concat("refs/heads/", newDefaultBranch);
     }
 
     /// @notice Retrieves an object by its hash.
