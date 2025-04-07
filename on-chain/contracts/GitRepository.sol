@@ -30,7 +30,7 @@ contract GitRepository is Ownable2Step {
 
     /// @notice Sets the default branch of the repository.
     /// @param newDefaultBranch The name of the new default branch.
-    function setDefaultBranch(string memory newDefaultBranch) public onlyOwner {
+    function setDefaultBranch(string calldata newDefaultBranch) public onlyOwner {
         require(bytes(newDefaultBranch).length > 0, "Default branch is empty");
         validateRefName(newDefaultBranch);
         defaultBranchRef = string.concat("refs/heads/", newDefaultBranch);
@@ -116,7 +116,7 @@ contract GitRepository is Ownable2Step {
     /// @notice Retrieves a reference by name.
     /// @param name The name of the reference to retrieve.
     /// @return The hash of the reference.
-    function getRef(string memory name) public view returns (bytes32) {
+    function getRef(string calldata name) public view returns (bytes32) {
         bytes32 key = keccak256(bytes(name));
         require(_references[key] != bytes32(0), "Ref not found");
         return _references[key];
@@ -124,7 +124,7 @@ contract GitRepository is Ownable2Step {
 
     /// @notice Validates a reference name.
     /// @param name The name of the reference to validate.
-    function validateRefName(string memory name) internal pure {
+    function validateRefName(string calldata name) internal pure {
         // TODO: Follow Git ref name rules
         require(bytes(name).length > 0, "Name is invalid");
     }
@@ -132,7 +132,7 @@ contract GitRepository is Ownable2Step {
     /// @notice Upserts a reference.
     /// @param name The name of the reference to upsert.
     /// @param hash The hash of the reference to upsert.
-    function upsertRef(string memory name, bytes32 hash) public onlyOwner {
+    function upsertRef(string calldata name, bytes32 hash) public onlyOwner {
         require(hash != bytes32(0), "Hash is empty");
         require(_objects[hash].length > 0, "Object not found");
         validateRefName(name);
@@ -150,7 +150,7 @@ contract GitRepository is Ownable2Step {
 
     /// @notice Deletes a reference.
     /// @param name The name of the reference to delete.
-    function deleteRef(string memory name) public onlyOwner {
+    function deleteRef(string calldata name) public onlyOwner {
         require(_referenceNames.length > 0, "No refs");
 
         bytes memory nameBytes = bytes(name);
