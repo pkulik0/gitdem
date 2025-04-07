@@ -10,7 +10,7 @@ import "./external/SHA1.sol";
 contract GitRepository is Ownable2Step {
     /// @dev The reference to the default branch of the repository.
     string public defaultBranchRef = "refs/heads/main";
-    /// @dev SHA256 are highly recommended due to lower gas costs and better collision resistance.
+    /// @dev SHA256 is highly recommended due to lower gas costs and better collision resistance.
     bool _isSHA256;
 
     /// @dev keccak256(name) -> padded SHA1 or SHA256 hash
