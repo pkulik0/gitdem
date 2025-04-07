@@ -125,7 +125,7 @@ contract GitRepository is Ownable2Step {
 
     /// @notice Validates a reference name.
     /// @param name The name of the reference to validate.
-    function validateRefName(string memory name) private pure {
+    function validateRefName(string memory name) internal pure {
         // TODO: Follow Git ref name rules
         require(bytes(name).length > 0, "Name is invalid");
     }
