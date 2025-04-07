@@ -44,17 +44,23 @@ contract GitRepository is Ownable2Step {
         return _objects[hash];
     }
 
+    /// @dev Represents a git object.
+    struct Object {
+        bytes32 hash;
+        bytes data;
+    }
+
     /// @notice Adds an object to the project.
     /// @param object The object data.
-    function addObject(bytes32 hash, bytes memory object) public onlyOwner {
-        require(object.length > 0, "Object is empty");
-        require(hash != bytes32(0), "Hash is empty");
+    function addObject(Object calldata object) public onlyOwner {
+        require(object.data.length > 0, "Object is empty");
+        require(object.hash != bytes32(0), "Hash is empty");
 
-        bytes32 computedHash = _isSHA256 ? sha256(object) : SHA1.sha1(object);
-        require(computedHash == hash, "Hash mismatch");
+        bytes32 computedHash = _isSHA256 ? sha256(object.data) : SHA1.sha1(object.data);
+        require(computedHash == object.hash, "Hash mismatch");
 
-        require(_objects[hash].length == 0, "Object already exists");
-        _objects[hash] = object;
+        require(_objects[object.hash].length == 0, "Object already exists");
+        _objects[object.hash] = object.data;
     }
 
     /// @dev A struct representing a normal reference.

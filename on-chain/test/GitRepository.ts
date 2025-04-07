@@ -61,7 +61,7 @@ describe("GitRepository", function () {
 
         const data = crypto.randomBytes(100);
         const hash = generateHash(true, data);
-        await gitRepository.addObject(hash, data);
+        await gitRepository.addObject({ hash, data });
       });
 
       it("can add SHA1", async function () {
@@ -69,7 +69,7 @@ describe("GitRepository", function () {
 
         const data = crypto.randomBytes(100);
         const hash = generateHash(false, data);
-        await gitRepository.addObject(hash, data);
+        await gitRepository.addObject({ hash, data });
       });
 
       it("can't add with a SHA256 hash to a SHA1 repository", async function () {
@@ -77,7 +77,7 @@ describe("GitRepository", function () {
 
         const data = crypto.randomBytes(100);
         const hash = generateHash(true, data);
-        await expect(gitRepository.addObject(hash, data)).to.be.revertedWith("Hash mismatch");
+        await expect(gitRepository.addObject({ hash, data })).to.be.revertedWith("Hash mismatch");
       });
 
       it("can't add with a SHA1 hash to a SHA256 repository", async function () {
@@ -85,7 +85,7 @@ describe("GitRepository", function () {
 
         const data = crypto.randomBytes(100);
         const hash = generateHash(false, data);
-        await expect(gitRepository.addObject(hash, data)).to.be.revertedWith("Hash mismatch");
+        await expect(gitRepository.addObject({ hash, data })).to.be.revertedWith("Hash mismatch");
       });
 
       it("can't add with an empty hash", async function () {
@@ -93,7 +93,7 @@ describe("GitRepository", function () {
 
         const data = crypto.randomBytes(100);
         const hash = new Uint8Array(32);
-        await expect(gitRepository.addObject(hash, data)).to.be.revertedWith("Hash is empty");
+        await expect(gitRepository.addObject({ hash, data })).to.be.revertedWith("Hash is empty");
       });
 
       it("can't add an empty object", async function () {
@@ -101,7 +101,7 @@ describe("GitRepository", function () {
 
         const data = new Uint8Array(0);
         const hash = generateHash(true, data);
-        await expect(gitRepository.addObject(hash, data)).to.be.revertedWith("Object is empty");
+        await expect(gitRepository.addObject({ hash, data })).to.be.revertedWith("Object is empty");
       });
 
       it("can't add if not the owner", async function () {
@@ -110,7 +110,7 @@ describe("GitRepository", function () {
         );
 
         const hash = generateHash(true);
-        await expect(gitRepository.connect(otherAccount).addObject(hash, new Uint8Array(32)))
+        await expect(gitRepository.connect(otherAccount).addObject({ hash, data: new Uint8Array(32) }))
           .to.be.revertedWithCustomError(gitRepository, "OwnableUnauthorizedAccount")
           .withArgs(otherAccount.address);
       });
@@ -120,8 +120,8 @@ describe("GitRepository", function () {
 
         const data = crypto.randomBytes(100);
         const hash = generateHash(true, data);
-        await gitRepository.addObject(hash, data);
-        await expect(gitRepository.addObject(hash, data)).to.be.revertedWith("Object already exists");
+        await gitRepository.addObject({ hash, data });
+        await expect(gitRepository.addObject({ hash, data })).to.be.revertedWith("Object already exists");
       });
     });
 
@@ -131,7 +131,7 @@ describe("GitRepository", function () {
 
         const data = crypto.randomBytes(100);
         const hash = generateHash(true, data);
-        await gitRepository.addObject(hash, data);
+        await gitRepository.addObject({ hash, data });
 
         const object = await gitRepository.getObject(hash);
         expect(ethers.getBytes(object)).to.deep.equal(data);
@@ -149,7 +149,7 @@ describe("GitRepository", function () {
 
         const data = crypto.randomBytes(100);
         const hash = generateHash(true, data);
-        await gitRepository.addObject(hash, data);
+        await gitRepository.addObject({ hash, data });
 
         const hash2 = generateHash(true);
         await expect(gitRepository.getObject(hash2)).to.be.revertedWith("Object not found");
@@ -160,7 +160,7 @@ describe("GitRepository", function () {
 
         const data = crypto.randomBytes(100);
         const hash = generateHash(true, data);
-        await gitRepository.addObject(hash, data);
+        await gitRepository.addObject({ hash, data });
 
         const object = await gitRepository.connect(otherAccount).getObject(hash);
         expect(ethers.getBytes(object)).to.deep.equal(data);
@@ -174,11 +174,11 @@ describe("GitRepository", function () {
 
       const data = crypto.randomBytes(100);
       const hash = generateHash(isSHA256, data);
-      await gitRepository.addObject(hash, data);
+      await gitRepository.addObject({ hash, data });
 
       const otherData = crypto.randomBytes(100);
       const otherHash = generateHash(isSHA256, otherData);
-      await gitRepository.addObject(otherHash, otherData);
+      await gitRepository.addObject({ hash: otherHash, data: otherData });
 
       return { gitRepository, owner, otherAccount, hash, otherHash };
     }
