@@ -161,13 +161,13 @@ describe("GitRepository", function () {
         const { gitRepository } = await loadFixture(existingObjectFixture);
         const refs = await gitRepository.listRefs();
         expect(refs.kv.length).to.equal(1);
-        expect(refs.kv[0].name).to.equal("object-format");
+        expect(refs.kv[0].key).to.equal("object-format");
         expect(refs.kv[0].value).to.equal("sha256");
 
         const { gitRepository: gitRepositorySHA1 } = await loadFixture(existingObjectFixtureSHA1);
         const refsSHA1 = await gitRepositorySHA1.listRefs();
         expect(refsSHA1.kv.length).to.equal(1);
-        expect(refsSHA1.kv[0].name).to.equal("object-format");
+        expect(refsSHA1.kv[0].key).to.equal("object-format");
         expect(refsSHA1.kv[0].value).to.equal("sha1");
       });
 

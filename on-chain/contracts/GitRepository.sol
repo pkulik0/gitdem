@@ -77,7 +77,7 @@ contract GitRepository is Ownable2Step {
 
     /// @dev A struct representing a key-value reference.
     struct RefKV {
-        string name;
+        string key;
         string value;
     }
 
@@ -108,7 +108,7 @@ contract GitRepository is Ownable2Step {
 
         RefKV[] memory kv = new RefKV[](1);
         kv[0] = RefKV({
-            name: "object-format",
+            key: "object-format",
             value: _isSHA256 ? "sha256" : "sha1"
         });
 
