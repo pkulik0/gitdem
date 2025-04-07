@@ -52,7 +52,7 @@ fn construct_remote_helper(args: Args) -> Evm {
 fn construct_remote_helper(_: Args) -> Mock {
     use core::config::mock::MockConfig;
     use core::hash::Hash;
-    use core::reference::{Keyword, Reference, Value};
+    use core::reference::{Keys, Reference};
     use log::warn;
 
     warn!("using mock remote helper");

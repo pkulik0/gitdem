@@ -8,7 +8,7 @@ use std::io::{BufRead, Write};
 mod error;
 
 #[cfg(test)]
-use crate::core::reference::{Keyword, Value};
+use crate::core::reference::Keys;
 use crate::core::remote_helper::RemoteHelper;
 #[cfg(test)]
 use crate::core::remote_helper::mock::Mock;
@@ -135,7 +135,10 @@ impl<'a> CLI<'a> {
 
                 let hash = Hash::from_str(args[0]).ok_or(CLIError::MalformedLine(line.clone()))?;
                 let ref_name = args[1].to_string();
-                let reference = Reference::new_with_hash(ref_name, hash);
+                let reference = Reference::Normal {
+                    name: ref_name,
+                    hash,
+                };
 
                 match &mut self.state {
                     State::None => {
@@ -257,25 +260,21 @@ fn test_list() {
     let mut stderr = Vec::new();
 
     let refs = vec![
-        Reference {
-            value: Value::Hash(
-                Hash::from_str("4e1243bd22c66e76c2ba9eddc1f91394e57f9f83")
-                    .expect("failed to create hash"),
-            ),
+        Reference::Normal {
             name: "refs/heads/main".to_string(),
-            attributes: vec![],
+            hash: Hash::from_str("4e1243bd22c66e76c2ba9eddc1f91394e57f9f83")
+                .expect("failed to create hash"),
         },
-        Reference {
-            value: Value::SymRef("refs/heads/main".to_string()),
+        Reference::Symbolic {
             name: "refs/heads/main".to_string(),
-            attributes: vec![],
+            target: "refs/heads/main".to_string(),
         },
-        Reference {
-            value: Value::KeyValue(Keyword::ObjectFormat("sha1".to_string())),
-            name: "refs/heads/main".to_string(),
-            attributes: vec![],
+        Reference::KeyValue {
+            key: Keys::ObjectFormat,
+            value: "sha1".to_string(),
         },
     ];
+
     let remote_helper = Mock::new(refs.clone());
     let mut cli = CLI::new(
         Box::new(remote_helper),

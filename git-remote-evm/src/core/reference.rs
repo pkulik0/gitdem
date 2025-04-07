@@ -1,81 +1,45 @@
 use super::hash::Hash;
 use std::fmt;
 
-// gitremote-helpers.adoc (line 438)
-#[derive(Clone, Debug, PartialEq)]
-pub enum Attribute {
-    Unchanged,
-}
-
-impl fmt::Display for Attribute {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Attribute::Unchanged => write!(f, "unchanged"),
-        }
-    }
-}
-
 // gitremote-helpers.adoc (line 449)
 #[derive(Clone, Debug, PartialEq)]
-pub enum Keyword {
-    ObjectFormat(String),
+pub enum Keys {
+    ObjectFormat,
 }
 
-impl fmt::Display for Keyword {
+impl fmt::Display for Keys {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Keyword::ObjectFormat(format) => write!(f, "object-format {}", format),
-        }
-    }
-}
-
-// gitremote-helpers.adoc (line 265)
-#[derive(Clone, Debug, PartialEq)]
-pub enum Value {
-    Hash(Hash),
-    SymRef(String),
-    KeyValue(Keyword),
-    Unknown,
-}
-
-impl fmt::Display for Value {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Value::Hash(hash) => write!(f, "{}", hash),
-            Value::SymRef(symref) => write!(f, "@{}", symref),
-            Value::KeyValue(keyword) => write!(f, ":{}", keyword),
-            Value::Unknown => write!(f, "?"),
+            Keys::ObjectFormat => write!(f, "object-format"),
         }
     }
 }
 
 // gitremote-helpers.adoc (line 264)
 #[derive(Clone, Debug, PartialEq)]
-pub struct Reference {
-    pub value: Value,
-    pub name: String,
-    pub attributes: Vec<Attribute>,
+pub enum Reference {
+    Normal {
+        name: String,
+        hash: Hash,
+    },
+    Symbolic {
+        name: String,
+        target: String,
+    },
+    KeyValue {
+        key: Keys,
+        value: String
+    },
+    Unknown,
 }
 
 impl fmt::Display for Reference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.value)?;
-        if !self.name.is_empty() {
-            write!(f, " {}", self.name)?;
-        }
-        for attr in self.attributes.iter() {
-            write!(f, " {}", attr)?;
-        }
-        Ok(())
-    }
-}
-
-impl Reference {
-    pub fn new_with_hash(name: String, hash: Hash) -> Self {
-        Self {
-            value: Value::Hash(hash),
-            name,
-            attributes: vec![],
+        match self {
+            Reference::Normal{ name, hash } => write!(f, "{} {}", hash, name),
+            Reference::Symbolic{name, target} => write!(f, "@{} {}", target, name),
+            Reference::KeyValue{key, value} => write!(f, ":{} {}", key, value),
+            Reference::Unknown => write!(f, "?"),
         }
     }
 }
