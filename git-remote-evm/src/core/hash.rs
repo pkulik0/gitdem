@@ -25,7 +25,7 @@ impl FromStr for Hash {
         } else {
             Err(RemoteHelperError::Failure {
                 action: "parsing hash".to_string(),
-                details: Some("invalid hash".to_string()),
+                details: Some(format!("invalid hash: {:?}", s)),
             })
         }
     }
