@@ -17,6 +17,8 @@ const RPC_REGEX: LazyLock<Regex> =
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum EvmWallet {
+    #[cfg(test)]
+    PrivateKey(String),
     Keypair(PathBuf),
     Environment,
     Browser,
