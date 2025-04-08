@@ -1,4 +1,6 @@
 use alloy::network::EthereumWallet;
+#[cfg(test)]
+use alloy::primitives::Address;
 use alloy::providers::fillers::{
     BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
 };
@@ -45,6 +47,8 @@ impl Background {
         address: [u8; 20],
     ) -> Result<Self, RemoteHelperError> {
         let private_key = match wallet_type {
+            #[cfg(test)]
+            EvmWallet::PrivateKey(private_key) => private_key,
             EvmWallet::Browser => {
                 return Err(RemoteHelperError::Failure {
                     action: "creating background executor".to_string(),
@@ -131,4 +135,52 @@ impl Executor for Background {
 
         Ok(refs)
     }
+}
+
+#[cfg(test)]
+async fn deploy_contract(deployer_pk: &str, rpc: &str) -> Address {
+    let signer = deployer_pk
+        .parse::<PrivateKeySigner>()
+        .expect("failed to parse deployer private key");
+    let wallet = EthereumWallet::from(signer);
+
+    let provider = ProviderBuilder::new()
+        .wallet(wallet)
+        .on_http(rpc.parse().expect("failed to parse rpc"));
+
+    let contract = GitRepository::deploy(provider, true)
+        .await
+        .expect("failed to deploy contract");
+    contract.address().to_owned()
+}
+
+#[cfg(test)]
+const TEST_SIGNER0_PK: &str = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+#[cfg(test)]
+const TEST_RPC: &str = "http://localhost:8545";
+
+#[tokio::test]
+async fn test_list() {
+    let address = deploy_contract(TEST_SIGNER0_PK, TEST_RPC).await;
+
+    let executor = Background::new(
+        EvmWallet::PrivateKey(TEST_SIGNER0_PK.to_string()),
+        TEST_RPC,
+        address.into(),
+    )
+    .await
+    .expect("failed to create executor");
+
+    let refs = executor.list().await.expect("failed to list references");
+    let expected = vec![
+        Reference::Symbolic {
+            name: "HEAD".to_string(),
+            target: "refs/heads/main".to_string(),
+        },
+        Reference::KeyValue {
+            key: Keys::ObjectFormat,
+            value: "sha256".to_string(),
+        },
+    ];
+    assert_eq!(refs, expected);
 }
