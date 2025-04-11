@@ -566,6 +566,24 @@ describe("GitRepository", function () {
         }],
       })).to.be.revertedWith("Ref not found");
     });
+
+    it("emits events", async function () {
+      const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
+
+      const data = crypto.randomBytes(100);
+      const hash = generateHash(true, data);
+
+      await expect(gitRepository.pushObjectsAndRefs({
+        objects: [{ hash, data }],
+        refs: [{ name: "refs/heads/main", hash }],
+      })).to.emit(gitRepository, "RefChanged").withArgs("refs/heads/main", hash, new Uint8Array(32))
+        .and.emit(gitRepository, "ObjectAdded").withArgs(hash);
+
+      await expect(gitRepository.pushObjectsAndRefs({
+        objects: [],
+        refs: [{ name: "refs/heads/main", hash: new Uint8Array(32) }],
+      })).to.emit(gitRepository, "RefChanged").withArgs("refs/heads/main", new Uint8Array(32), hash);
+    });
   });
 
 

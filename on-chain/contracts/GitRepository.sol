@@ -50,6 +50,9 @@ contract GitRepository is Ownable2Step {
         bytes data;
     }
 
+    /// @dev Emitted when an object is added.
+    event ObjectAdded(bytes32 hash);
+
     /// @notice Adds an object to the project.
     /// @param object The object data.
     function addObject(Object calldata object) internal {
@@ -61,6 +64,7 @@ contract GitRepository is Ownable2Step {
 
         require(_objects[object.hash].length == 0, "Object already exists");
         _objects[object.hash] = object.data;
+        emit ObjectAdded(object.hash);
     }
 
     /// @dev A struct representing a normal reference.
@@ -135,6 +139,9 @@ contract GitRepository is Ownable2Step {
         require(bytes(name).length > 0, "Name is invalid");
     }
 
+    /// @dev Emitted when a reference is upserted.
+    event RefChanged(string name, bytes32 hash, bytes32 oldHash);
+
     /// @notice Upserts a reference.
     /// @param ref The reference to upsert.
     function upsertRef(RefNormal calldata ref) internal {
@@ -144,7 +151,9 @@ contract GitRepository is Ownable2Step {
 
         bytes memory nameBytes = bytes(ref.name);
         bytes32 nameKeccak = keccak256(nameBytes);
+        bytes32 oldHash = _references[nameKeccak];
         _references[nameKeccak] = ref.hash;
+        emit RefChanged(ref.name, ref.hash, oldHash);
 
         if (_referenceNameToIndex[nameKeccak] == 0) {
             _referenceNames.push(ref.name);
@@ -165,10 +174,13 @@ contract GitRepository is Ownable2Step {
         require(refIndex != 0, "Ref not found");
         refIndex--; // offset by 1 to let 0 mean not found
 
+        bytes32 oldHash = _references[nameKeccak];
         delete _referenceNameToIndex[nameKeccak];
         delete _references[nameKeccak];
         _referenceNames[refIndex] = _referenceNames[_referenceNames.length - 1];
         _referenceNames.pop();
+
+        emit RefChanged(name, bytes32(0), oldHash);
     }
 
     /// @dev A struct representing the data to push to the repository.
