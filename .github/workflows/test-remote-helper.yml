@@ -29,7 +29,10 @@ jobs:
     - name: Build
       run: cargo build --verbose
       working-directory: git-remote-evm
+    # TODO: Make it work without --test-threads=1
+    # This is a workaround needed to make it work with hardhat's test node
+    # There's a nonce mismatch when running tests in parallel
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test --verbose -- --test-threads=1
       working-directory: git-remote-evm
 
