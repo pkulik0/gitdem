@@ -2,8 +2,13 @@ mod background;
 mod browser;
 mod link_opener;
 
-use super::{config::EvmWallet, Wallet};
-use crate::core::{object::Object, reference::{Reference, ReferencePush}, remote_helper::error::RemoteHelperError};
+use super::{Wallet, config::EvmWallet};
+use crate::core::{
+    hash::Hash,
+    object::Object,
+    reference::{Reference, ReferencePush},
+    remote_helper::error::RemoteHelperError,
+};
 use background::Background;
 // use browser::Browser;
 // use link_opener::browser::BrowserLinkOpener;
@@ -12,10 +17,18 @@ use async_trait::async_trait;
 #[async_trait]
 pub trait Executor {
     async fn list(&self) -> Result<Vec<Reference>, RemoteHelperError>;
-    async fn push(&self, objects: Vec<Object>, refs: Vec<ReferencePush>) -> Result<(), RemoteHelperError>;
+    async fn push(
+        &self,
+        objects: Vec<Object>,
+        refs: Vec<ReferencePush>,
+    ) -> Result<(), RemoteHelperError>;
+    async fn fetch(&self, hash: Hash) -> Result<Object, RemoteHelperError>;
 }
 
-pub async fn create_executor(rpc: &str, wallet_type: EvmWallet) -> Result<Box<dyn Executor>, RemoteHelperError> {
+pub async fn create_executor(
+    rpc: &str,
+    wallet_type: EvmWallet,
+) -> Result<Box<dyn Executor>, RemoteHelperError> {
     match wallet_type.is_extension() {
         // true => Ok(Box::new(Browser::new(Box::new(BrowserLinkOpener))?)),
         true => todo!(),

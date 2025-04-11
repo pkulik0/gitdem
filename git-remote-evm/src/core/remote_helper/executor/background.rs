@@ -1,4 +1,4 @@
-use GitRepository::{Object, PushData, RefNormal};
+use GitRepository::{Object as ContractObject, PushData, RefNormal};
 use alloy::network::EthereumWallet;
 use alloy::primitives::{Bytes, FixedBytes};
 use alloy::providers::fillers::{
@@ -12,7 +12,7 @@ use std::str::FromStr;
 
 use super::Executor;
 use crate::core::hash::Hash;
-use crate::core::object::Object as GitObject;
+use crate::core::object::Object;
 use crate::core::reference::ReferencePush;
 use crate::core::remote_helper::config::EvmWallet;
 use crate::core::{
@@ -142,7 +142,7 @@ impl Executor for Background {
 
     async fn push(
         &self,
-        objects: Vec<GitObject>,
+        objects: Vec<Object>,
         refs: Vec<ReferencePush>,
     ) -> Result<(), RemoteHelperError> {
         let mut data: PushData = PushData {
@@ -151,7 +151,7 @@ impl Executor for Background {
         };
 
         for object in objects {
-            data.objects.push(Object {
+            data.objects.push(ContractObject {
                 hash: FixedBytes::from_str(object.hash.to_string().as_str()).map_err(|e| {
                     RemoteHelperError::Failure {
                         action: "pushing objects and refs".to_string(),
@@ -193,6 +193,23 @@ impl Executor for Background {
             })?;
 
         Ok(())
+    }
+
+    async fn fetch(&self, hash: Hash) -> Result<Object, RemoteHelperError> {
+        let hash_bytes = FixedBytes::from_str(hash.to_string().as_str()).map_err(|e| RemoteHelperError::Failure {
+            action: "converting hash to fixed bytes".to_string(),
+            details: Some(e.to_string()),
+        })?;
+        let object = self.contract.getObject(hash_bytes).call().await.map_err(|e| RemoteHelperError::Failure {
+            action: "fetching object".to_string(),
+            details: Some(e.to_string()),
+        })?;
+
+        let data = object._0;
+        Ok(Object {
+            hash,
+            data: data.to_vec(),
+        })
     }
 }
 
@@ -249,7 +266,7 @@ async fn test_push() {
 
     let hash = Hash::from_str("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
         .expect("failed to parse hash");
-    let objects = vec![GitObject {
+    let objects = vec![Object {
         hash: hash.clone(),
         data: b"test".to_vec(),
     }];
@@ -276,4 +293,27 @@ async fn test_push() {
         },
     ];
     assert_eq!(refs, expected);
+}
+
+#[tokio::test]
+async fn test_fetch() {
+    let executor = setup_test_executor().await;
+
+    let hash = Hash::from_str("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
+        .expect("failed to parse hash");
+    let data = b"test".to_vec();
+    let objects = vec![Object {
+        hash: hash.clone(),
+        data: data.clone(),
+    }];
+    let refs = vec![ReferencePush {
+        src: "refs/heads/main".to_string(),
+        dest: hash.to_string(),
+        is_force: false,
+    }];
+    executor.push(objects, refs).await.expect("failed to push");
+
+    let object = executor.fetch(hash.clone()).await.expect("failed to fetch object");
+    assert_eq!(object.hash, hash);
+    assert_eq!(object.data, data);
 }
