@@ -26,9 +26,16 @@ jobs:
         git config --global user.name "github-actions"
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
+    - name: Install on-chain's dependencies
+      run: npm install
+      working-directory: on-chain
     - name: Build
       run: cargo build --verbose
       working-directory: git-remote-evm
+    - name: Run hardhat test node in background
+      run: |
+        nohup npx hardhat node &
+        sleep 3
     # TODO: Make it work without --test-threads=1
     # This is a workaround needed to make it work with hardhat's test node
     # There's a nonce mismatch when running tests in parallel
