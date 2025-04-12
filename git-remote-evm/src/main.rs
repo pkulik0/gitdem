@@ -6,11 +6,12 @@ mod integration_tests;
 
 use args::Args;
 use cli::CLI;
+use core::git::system::SystemGit;
+use core::remote_helper::error::RemoteHelperError;
 #[cfg(not(feature = "mock"))]
 use core::remote_helper::evm::Evm;
 #[cfg(feature = "mock")]
 use core::remote_helper::mock::Mock;
-
 use flexi_logger::{FileSpec, Logger, WriteMode};
 use log::{debug, error};
 use std::error::Error;
@@ -40,23 +41,24 @@ fn setup_panic_hook() {
 }
 
 #[cfg(not(feature = "mock"))]
-fn construct_remote_helper(args: Args) -> Evm {
+fn construct_remote_helper(args: Args) -> Result<Evm, RemoteHelperError> {
     use core::config::git::GitConfig;
 
     debug!("using evm remote helper");
     let config = Box::new(GitConfig::new(args.directory().clone()));
-    Evm::new(args, config)
+    let git = Box::new(SystemGit::new(args.directory().clone()));
+    Evm::new(args, config, git)
 }
 
 #[cfg(feature = "mock")]
-fn construct_remote_helper(_: Args) -> Mock {
+fn construct_remote_helper(_: Args) -> Result<Mock, RemoteHelperError> {
     use core::config::mock::MockConfig;
     use core::hash::Hash;
     use core::reference::{Keys, Reference};
     use log::warn;
 
     warn!("using mock remote helper");
-    Mock::new(vec![
+    Ok(Mock::new(vec![
         // Reference {
         //     value: Value::KeyValue(Keyword::ObjectFormat("sha1".to_string())),
         //     name: "".to_string(),
@@ -74,7 +76,7 @@ fn construct_remote_helper(_: Args) -> Mock {
         //     name: "HEAD".to_string(),
         //     attributes: vec![],
         // },
-    ])
+    ]))
 }
 
 fn exit_with_error(msg: &str, e: Box<dyn Error>) -> ! {
@@ -112,7 +114,10 @@ fn main() {
         .unwrap_or_else(|e| exit_with_error("failed to collect args", e.into()));
     debug!("running with {:?}", args);
 
-    let remote_helper = Box::new(construct_remote_helper(args));
+    let remote_helper = Box::new(
+        construct_remote_helper(args)
+            .unwrap_or_else(|e| exit_with_error("failed to construct remote helper", e.into())),
+    );
 
     let mut cli = CLI::new(remote_helper, &mut stdin, &mut stdout, &mut stderr);
     cli.run()

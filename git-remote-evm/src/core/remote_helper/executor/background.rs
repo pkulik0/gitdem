@@ -158,13 +158,13 @@ impl Executor for Background {
                         details: Some(e.to_string()),
                     }
                 })?,
-                data: Bytes::from(object.data),
+                data: Bytes::from(object.data.clone()),
             });
         }
 
         for reference in refs {
             data.refs.push(RefNormal {
-                name: reference.src,
+                name: reference.src.clone(),
                 hash: FixedBytes::from_str(reference.dest.as_str()).map_err(|e| {
                     RemoteHelperError::Failure {
                         action: "pushing objects and refs".to_string(),
@@ -207,7 +207,7 @@ impl Executor for Background {
 
         let data = object._0;
         Ok(Object {
-            hash,
+            hash: hash.clone(),
             data: data.to_vec(),
         })
     }
@@ -264,11 +264,11 @@ async fn test_list() {
 async fn test_push() {
     let executor = setup_test_executor().await;
 
-    let hash = Hash::from_str("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
-        .expect("failed to parse hash");
+    let data = b"test".to_vec();
+    let hash = Hash::from_data_sha256(&data).expect("failed to create hash");
     let objects = vec![Object {
         hash: hash.clone(),
-        data: b"test".to_vec(),
+        data: data,
     }];
     let refs = vec![ReferencePush {
         src: "refs/heads/main".to_string(),
@@ -299,9 +299,8 @@ async fn test_push() {
 async fn test_fetch() {
     let executor = setup_test_executor().await;
 
-    let hash = Hash::from_str("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
-        .expect("failed to parse hash");
     let data = b"test".to_vec();
+    let hash = Hash::from_data_sha256(&data).expect("failed to create hash");
     let objects = vec![Object {
         hash: hash.clone(),
         data: data.clone(),

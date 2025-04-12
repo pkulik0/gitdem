@@ -1,3 +1,4 @@
+use crate::core::hash::Hash;
 use crate::core::reference::{Reference, ReferencePush};
 use crate::core::remote_helper::{RemoteHelper, RemoteHelperError};
 
@@ -20,11 +21,11 @@ impl RemoteHelper for Mock {
         Ok(self.refs.clone())
     }
 
-    fn fetch(&self, reference: &Reference) -> Result<(), RemoteHelperError> {
+    fn fetch(&self, hash: Hash) -> Result<(), RemoteHelperError> {
         Ok(())
     }
 
-    fn push(&self, _reference: &ReferencePush) -> Result<(), RemoteHelperError> {
+    fn push(&self, _reference: ReferencePush) -> Result<(), RemoteHelperError> {
         Ok(())
     }
 }

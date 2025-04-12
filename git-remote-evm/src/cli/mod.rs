@@ -23,7 +23,7 @@ use error::CLIError;
 enum State {
     #[default]
     None,
-    ListingFetches(Vec<Reference>),
+    ListingFetches(Vec<Hash>),
     ListingPushes(Vec<ReferencePush>),
 }
 
@@ -53,23 +53,23 @@ impl<'a> CLI<'a> {
         }
     }
 
-    fn do_fetch(&mut self, refs: &[Reference]) -> Result<(), CLIError> {
-        info!("fetch: {:?}", refs);
+    fn do_fetch(&mut self, hashes: Vec<Hash>) -> Result<(), CLIError> {
+        info!("fetch: {:?}", hashes);
 
-        for reference in refs {
-            self.remote_helper.fetch(reference)?;
+        for hash in hashes {
+            self.remote_helper.fetch(hash)?;
         }
 
         writeln!(self.stdout)?;
         Ok(())
     }
 
-    fn do_push(&mut self, refs: &[ReferencePush]) -> Result<(), CLIError> {
+    fn do_push(&mut self, refs: Vec<ReferencePush>) -> Result<(), CLIError> {
         info!("push: {:?}", refs);
 
         let results = refs
             .iter()
-            .map(|reference| match self.remote_helper.push(reference) {
+            .map(|reference| match self.remote_helper.push(reference.clone()) {
                 Ok(_) => {
                     return format!("ok {}", reference.dest);
                 }
@@ -92,8 +92,8 @@ impl<'a> CLI<'a> {
         if line == "\n" {
             match std::mem::take(&mut self.state) {
                 State::None => return Err(CLIError::EndOfInput),
-                State::ListingFetches(refs) => return self.do_fetch(&refs),
-                State::ListingPushes(refs) => return self.do_push(&refs),
+                State::ListingFetches(hashes) => return self.do_fetch(hashes),
+                State::ListingPushes(refs) => return self.do_push(refs),
             }
         }
 
@@ -135,20 +135,15 @@ impl<'a> CLI<'a> {
                 }
 
                 let hash = Hash::from_str(args[0]).map_err(|_| CLIError::InvalidArgument(args[0].to_string()))?;
-                let ref_name = args[1].to_string();
-                let reference = Reference::Normal {
-                    name: ref_name,
-                    hash,
-                };
 
                 match &mut self.state {
                     State::None => {
-                        debug!("new fetch list with: {:?}", reference);
-                        self.state = State::ListingFetches(vec![reference]);
+                        debug!("new fetch list with: {:?}", hash);
+                        self.state = State::ListingFetches(vec![hash]);
                     }
-                    State::ListingFetches(refs) => {
-                        debug!("appending fetch to list: {:?}", reference);
-                        refs.push(reference);
+                    State::ListingFetches(hashes) => {
+                        debug!("appending fetch to list: {:?}", hash);
+                        hashes.push(hash);
                     }
                     State::ListingPushes(_) => return Err(CLIError::IllegalState(line)),
                 }

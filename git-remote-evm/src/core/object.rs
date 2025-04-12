@@ -1,6 +1,6 @@
 use super::hash::Hash;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Object {
     pub hash: Hash,
     pub data: Vec<u8>,

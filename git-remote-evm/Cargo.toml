@@ -23,3 +23,6 @@ tokio = "1.44.1"
 git2 = "0.20.1"
 tempfile = "3.19.1"
 reqwest = { version = "0.12.15", features = ["blocking"] }
+sha2 = "0.10.8"
+hex = "0.4.3"
+sha1 = "0.10.6"
