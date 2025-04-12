@@ -76,9 +76,9 @@ impl<'a> CLI<'a> {
             }
         };
         for reference in refs {
-            writeln!(self.stdout, "{} {}", result, reference.dest)?;
+            writeln!(self.stdout, "{} {}", result, reference.remote)?;
         }
-        
+
         debug!("push result: {:?}", result);
         writeln!(self.stdout)?;
         Ok(())
@@ -162,9 +162,9 @@ impl<'a> CLI<'a> {
                     return Err(CLIError::MalformedLine(line));
                 }
 
-                let src = parts[0];
-                let dest = parts[1];
-                let reference = ReferencePush::new(src.to_string(), dest.to_string(), is_force);
+                let local = parts[0].to_string();
+                let remote = parts[1].to_string();
+                let reference = ReferencePush::new(local, remote, is_force);
 
                 match &mut self.state {
                     State::None => {

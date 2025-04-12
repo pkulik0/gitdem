@@ -162,8 +162,8 @@ impl Executor for Background {
 
         for reference in refs {
             data.refs.push(RefNormal {
-                name: reference.src.clone(),
-                hash: FixedBytes::from_str(reference.dest.as_str()).map_err(|e| {
+                name: reference.local.clone(),
+                hash: FixedBytes::from_str(reference.remote.as_str()).map_err(|e| {
                     RemoteHelperError::Failure {
                         action: "pushing objects and refs".to_string(),
                         details: Some(e.to_string()),
@@ -295,8 +295,8 @@ async fn test_push() {
     let hash = object.hash(true);
     let objects = vec![object];
     let refs = vec![ReferencePush {
-        src: "refs/heads/main".to_string(),
-        dest: hash.to_string(),
+        local: "refs/heads/main".to_string(),
+        remote: hash.to_string(),
         is_force: false,
     }];
     executor.push(objects, refs).await.expect("failed to push");
@@ -330,8 +330,8 @@ async fn test_fetch() {
     let hash = object.hash(true);
     let objects = vec![object.clone()];
     let refs = vec![ReferencePush {
-        src: "refs/heads/main".to_string(),
-        dest: hash.to_string(),
+        local: "refs/heads/main".to_string(),
+        remote: hash.to_string(),
         is_force: false,
     }];
     executor.push(objects, refs).await.expect("failed to push");
@@ -355,8 +355,8 @@ async fn test_get_references() {
     let objects = vec![object];
     let ref_name = "refs/heads/main".to_string();
     let refs = vec![ReferencePush {
-        src: ref_name.clone(),
-        dest: hash.to_string(),
+        local: ref_name.clone(),
+        remote: hash.to_string(),
         is_force: false,
     }];
     executor.push(objects, refs).await.expect("failed to push");

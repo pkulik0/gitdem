@@ -33,28 +33,17 @@ impl FromStr for Keys {
 // gitremote-helpers.adoc (line 264)
 #[derive(Clone, Debug, PartialEq)]
 pub enum Reference {
-    Normal {
-        name: String,
-        hash: Hash,
-    },
-    Symbolic {
-        name: String,
-        target: String,
-    },
-    KeyValue {
-        key: Keys,
-        value: String
-    },
-    Unknown,
+    Normal { name: String, hash: Hash },
+    Symbolic { name: String, target: String },
+    KeyValue { key: Keys, value: String },
 }
 
 impl fmt::Display for Reference {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Reference::Normal{ name, hash } => write!(f, "{} {}", hash, name),
-            Reference::Symbolic{name, target} => write!(f, "@{} {}", target, name),
-            Reference::KeyValue{key, value} => write!(f, ":{} {}", key, value),
-            Reference::Unknown => write!(f, "?"),
+            Reference::Normal { name, hash } => write!(f, "{} {}", hash, name),
+            Reference::Symbolic { name, target } => write!(f, "@{} {}", target, name),
+            Reference::KeyValue { key, value } => write!(f, ":{} {}", key, value),
         }
     }
 }
@@ -62,8 +51,8 @@ impl fmt::Display for Reference {
 // gitremote-helpers.adoc (line 321)
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReferencePush {
-    pub src: String,
-    pub dest: String,
+    pub local: String,
+    pub remote: String,
     pub is_force: bool,
 }
 
@@ -72,16 +61,16 @@ impl fmt::Display for ReferencePush {
         if self.is_force {
             write!(f, "+")?;
         }
-        write!(f, "{}:{}", self.src, self.dest)?;
+        write!(f, "{}:{}", self.local, self.remote)?;
         Ok(())
     }
 }
 
 impl ReferencePush {
-    pub fn new(src: String, dest: String, is_force: bool) -> Self {
+    pub fn new(local: String, remote: String, is_force: bool) -> Self {
         Self {
-            src,
-            dest,
+            local,
+            remote,
             is_force,
         }
     }
