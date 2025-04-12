@@ -15,4 +15,5 @@ pub trait Git {
         local: Hash,
         remote: Hash,
     ) -> Result<Vec<Hash>, RemoteHelperError>;
+    fn list_objects(&self, hash: Hash) -> Result<Vec<Hash>, RemoteHelperError>;
 }

@@ -1,5 +1,5 @@
 use crate::core::hash::Hash;
-use crate::core::reference::{Reference, ReferencePush};
+use crate::core::reference::{Reference, Push};
 use crate::core::remote_helper::{RemoteHelper, RemoteHelperError};
 
 pub struct Mock {
@@ -25,7 +25,7 @@ impl RemoteHelper for Mock {
         Ok(())
     }
 
-    fn push(&self, _references: Vec<ReferencePush>) -> Result<(), RemoteHelperError> {
+    fn push(&self, _pushes: Vec<Push>) -> Result<(), RemoteHelperError> {
         Ok(())
     }
 }

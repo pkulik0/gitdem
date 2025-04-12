@@ -17,6 +17,47 @@ impl SystemGit {
     }
 }
 
+impl SystemGit {
+    fn rev_parse(&self, name: &str) -> Result<Vec<Hash>, RemoteHelperError> {
+        let output = Command::new("git")
+            .current_dir(self.path.as_path())
+            .args(&["rev-list", "--objects", name])
+            .output()
+            .map_err(|e| RemoteHelperError::Failure {
+                action: "running git rev-list".to_string(),
+                details: Some(e.to_string()),
+            })?;
+        if !output.status.success() {
+            return Err(RemoteHelperError::Failure {
+                action: "running git rev-list".to_string(),
+                details: Some(String::from_utf8_lossy(&output.stderr).to_string()),
+            });
+        }
+
+        let stdout = String::from_utf8(output.stdout).map_err(|e| RemoteHelperError::Failure {
+            action: "reading stdout of git rev-list".to_string(),
+            details: Some(e.to_string()),
+        })?;
+
+        let mut hashes = vec![];
+        for line in stdout.lines() {
+            let hash_str = line
+                .split_whitespace()
+                .next()
+                .ok_or(RemoteHelperError::Failure {
+                    action: "getting hash from line".to_string(),
+                    details: Some(line.to_string()),
+                })?;
+            let hash = Hash::from_str(hash_str).map_err(|e| RemoteHelperError::Failure {
+                action: "parsing hash".to_string(),
+                details: Some(e.to_string()),
+            })?;
+            hashes.push(hash);
+        }
+        Ok(hashes)
+    }
+}
+
 impl Git for SystemGit {
     fn resolve_reference(&self, name: &str) -> Result<Hash, RemoteHelperError> {
         let output = Command::new("git")
@@ -158,42 +199,11 @@ impl Git for SystemGit {
         remote: Hash,
     ) -> Result<Vec<Hash>, RemoteHelperError> {
         let range = format!("{}..{}", local, remote);
-        let output = Command::new("git")
-            .current_dir(self.path.as_path())
-            .args(&["rev-list", "--objects", &range])
-            .output()
-            .map_err(|e| RemoteHelperError::Failure {
-                action: "running git rev-list".to_string(),
-                details: Some(e.to_string()),
-            })?;
-        if !output.status.success() {
-            return Err(RemoteHelperError::Failure {
-                action: "running git rev-list".to_string(),
-                details: Some(String::from_utf8_lossy(&output.stderr).to_string()),
-            });
-        }
+        self.rev_parse(&range)
+    }
 
-        let stdout = String::from_utf8(output.stdout).map_err(|e| RemoteHelperError::Failure {
-            action: "reading stdout of git rev-list".to_string(),
-            details: Some(e.to_string()),
-        })?;
-
-        let mut hashes = vec![];
-        for line in stdout.lines() {
-            let hash_str = line
-                .split_whitespace()
-                .next()
-                .ok_or(RemoteHelperError::Failure {
-                    action: "getting hash from line".to_string(),
-                    details: Some(line.to_string()),
-                })?;
-            let hash = Hash::from_str(hash_str).map_err(|e| RemoteHelperError::Failure {
-                action: "parsing hash".to_string(),
-                details: Some(e.to_string()),
-            })?;
-            hashes.push(hash);
-        }
-        Ok(hashes)
+    fn list_objects(&self, hash: Hash) -> Result<Vec<Hash>, RemoteHelperError> {
+        self.rev_parse(&hash.to_string())
     }
 }
 
@@ -245,7 +255,9 @@ fn test_resolve_reference() {
     }
 
     let git = SystemGit::new(repo_dir.path().to_path_buf());
-    let hash = git.resolve_reference("HEAD").expect("failed to resolve reference");
+    let hash = git
+        .resolve_reference("HEAD")
+        .expect("failed to resolve reference");
     assert_eq!(hash, get_head_hash(&repo_dir));
 }
 

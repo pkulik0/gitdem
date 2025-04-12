@@ -54,4 +54,8 @@ impl Git for Mock {
     ) -> Result<Vec<Hash>, RemoteHelperError> {
         Ok(self.missing_objects.clone())
     }
+
+    fn list_objects(&self, hash: Hash) -> Result<Vec<Hash>, RemoteHelperError> {
+        todo!()
+    }
 }

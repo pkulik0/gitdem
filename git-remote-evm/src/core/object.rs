@@ -1,8 +1,9 @@
 use super::hash::Hash;
 use crate::core::remote_helper::error::RemoteHelperError;
+use std::hash::Hash as StdHash;
 use std::str::FromStr;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, StdHash)]
 pub enum ObjectKind {
     Blob,
     Tree,
@@ -40,7 +41,7 @@ impl FromStr for ObjectKind {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, StdHash)]
 pub struct Object {
     pub kind: ObjectKind,
     pub data: Vec<u8>,

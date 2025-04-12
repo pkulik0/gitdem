@@ -50,13 +50,13 @@ impl fmt::Display for Reference {
 
 // gitremote-helpers.adoc (line 321)
 #[derive(Clone, Debug, PartialEq)]
-pub struct ReferencePush {
+pub struct Push {
     pub local: String,
     pub remote: String,
     pub is_force: bool,
 }
 
-impl fmt::Display for ReferencePush {
+impl fmt::Display for Push {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.is_force {
             write!(f, "+")?;
@@ -66,7 +66,7 @@ impl fmt::Display for ReferencePush {
     }
 }
 
-impl ReferencePush {
+impl Push {
     pub fn new(local: String, remote: String, is_force: bool) -> Self {
         Self {
             local,

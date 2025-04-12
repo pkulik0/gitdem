@@ -13,10 +13,7 @@ use crate::core::reference::Keys;
 use crate::core::remote_helper::RemoteHelper;
 #[cfg(test)]
 use crate::core::remote_helper::mock::Mock;
-use crate::core::{
-    hash::Hash,
-    reference::{Reference, ReferencePush},
-};
+use crate::core::{hash::Hash, reference::Push};
 use error::CLIError;
 
 #[derive(Default, PartialEq)]
@@ -24,7 +21,7 @@ enum State {
     #[default]
     None,
     ListingFetches(Vec<Hash>),
-    ListingPushes(Vec<ReferencePush>),
+    ListingPushes(Vec<Push>),
 }
 
 pub struct CLI<'a> {
@@ -64,7 +61,7 @@ impl<'a> CLI<'a> {
         Ok(())
     }
 
-    fn do_push(&mut self, refs: Vec<ReferencePush>) -> Result<(), CLIError> {
+    fn do_push(&mut self, refs: Vec<Push>) -> Result<(), CLIError> {
         info!("push: {:?}", refs);
 
         let result = match self.remote_helper.push(refs.clone()) {
@@ -164,7 +161,7 @@ impl<'a> CLI<'a> {
 
                 let local = parts[0].to_string();
                 let remote = parts[1].to_string();
-                let reference = ReferencePush::new(local, remote, is_force);
+                let reference = Push::new(local, remote, is_force);
 
                 match &mut self.state {
                     State::None => {
@@ -252,6 +249,7 @@ fn test_list() {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
 
+    use crate::core::reference::Reference;
     let refs = vec![
         Reference::Normal {
             name: "refs/heads/main".to_string(),

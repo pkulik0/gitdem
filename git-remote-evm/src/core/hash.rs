@@ -1,6 +1,6 @@
 use alloy::primitives::FixedBytes;
 use regex::Regex;
-use std::{fmt, str::FromStr, sync::LazyLock};
+use std::{fmt, hash::Hash as StdHash, str::FromStr, sync::LazyLock};
 
 use super::remote_helper::error::RemoteHelperError;
 
@@ -9,7 +9,7 @@ static HASH_REGEX_SHA1: LazyLock<Regex> =
 static HASH_REGEX_SHA256: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[0-9a-f]{64}$").expect("failed to create sha256 regex"));
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, StdHash)]
 pub enum Hash {
     Sha1(String),
     Sha256(String),
@@ -28,6 +28,14 @@ impl Hash {
 
         let hash = Sha1::digest(data);
         Ok(Self::Sha1(hex::encode(hash)))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        let s = match self {
+            Self::Sha1(s) => s,
+            Self::Sha256(s) => s,
+        };
+        s.is_empty()
     }
 }
 
