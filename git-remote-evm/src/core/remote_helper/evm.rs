@@ -59,9 +59,8 @@ impl RemoteHelper for Evm {
         Ok(())
     }
 
-    fn push(&self, reference: ReferencePush) -> Result<(), RemoteHelperError> {
+    fn push(&self, references: Vec<ReferencePush>) -> Result<(), RemoteHelperError> {
         let objects = vec![]; // TODO: figure out what objects the remote's missing
-        let refs = vec![reference];
-        self.runtime.block_on(self.executor.push(objects, refs))
+        self.runtime.block_on(self.executor.push(objects, references))
     }
 }

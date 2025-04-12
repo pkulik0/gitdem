@@ -13,7 +13,7 @@ pub trait RemoteHelper {
     fn capabilities(&self) -> Vec<&'static str>;
     fn list(&self, is_for_push: bool) -> Result<Vec<Reference>, RemoteHelperError>;
     fn fetch(&self, hash: Hash) -> Result<(), RemoteHelperError>;
-    fn push(&self, reference: ReferencePush) -> Result<(), RemoteHelperError>;
+    fn push(&self, references: Vec<ReferencePush>) -> Result<(), RemoteHelperError>;
 }
 
 pub trait Wallet {

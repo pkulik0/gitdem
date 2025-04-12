@@ -67,23 +67,19 @@ impl<'a> CLI<'a> {
     fn do_push(&mut self, refs: Vec<ReferencePush>) -> Result<(), CLIError> {
         info!("push: {:?}", refs);
 
-        let results = refs
-            .iter()
-            .map(|reference| match self.remote_helper.push(reference.clone()) {
-                Ok(_) => {
-                    return format!("ok {}", reference.dest);
-                }
-                Err(e) => {
-                    return format!("error {} {}", reference.dest, e);
-                }
-            })
-            .collect::<Vec<String>>();
-
-        for result in &results {
-            writeln!(self.stdout, "{}", result)?;
+        let result = match self.remote_helper.push(refs.clone()) {
+            Ok(_) => {
+                format!("ok")
+            }
+            Err(e) => {
+                format!("error {}", e)
+            }
+        };
+        for reference in refs {
+            writeln!(self.stdout, "{} {}", result, reference.dest)?;
         }
-        debug!("push results: {:?}", results);
-
+        
+        debug!("push result: {:?}", result);
         writeln!(self.stdout)?;
         Ok(())
     }
@@ -134,7 +130,8 @@ impl<'a> CLI<'a> {
                     return Err(CLIError::MalformedLine(line));
                 }
 
-                let hash = Hash::from_str(args[0]).map_err(|_| CLIError::InvalidArgument(args[0].to_string()))?;
+                let hash = Hash::from_str(args[0])
+                    .map_err(|_| CLIError::InvalidArgument(args[0].to_string()))?;
 
                 match &mut self.state {
                     State::None => {

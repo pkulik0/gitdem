@@ -25,7 +25,7 @@ impl RemoteHelper for Mock {
         Ok(())
     }
 
-    fn push(&self, _reference: ReferencePush) -> Result<(), RemoteHelperError> {
+    fn push(&self, _references: Vec<ReferencePush>) -> Result<(), RemoteHelperError> {
         Ok(())
     }
 }
