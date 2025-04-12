@@ -5,9 +5,8 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-// Intentionally more flexible than ETH address format in case some chains with EVM have different address formats.
-const ADDRESS_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9]+$").expect("failed to create evm address regex"));
+const EVM_ADDRESS_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^0x[a-fA-F0-9]{40}$").expect("failed to create evm address regex"));
 
 const EXECUTABLE_PREFIX: &str = "git-remote-";
 
@@ -259,7 +258,7 @@ fn test_validate_remote_name() {
 }
 
 fn validate_address(address: &str) -> bool {
-    ADDRESS_REGEX.is_match(address)
+    EVM_ADDRESS_REGEX.is_match(address)
 }
 
 #[test]
@@ -269,20 +268,24 @@ fn test_validate_address() {
     let address = "0xc0ffee254729296a45a3885639AC7E10F9d54979";
     assert!(validate_address(address));
 
-    let address = "0xc0ffee25472929";
+    let address = "0x4838B106FCe9647Bdf1E7877BF73cE8B0BAD5f97";
     assert!(validate_address(address));
 
-    let address = "0xc0ffee254729296a45a3885639AC7E10F9d54979313eueE";
+    let address = "0x388C818CA8B9251b393131C08a736A67ccB19297";
     assert!(validate_address(address));
 
-    let address = "0x123";
+    let address = "0xC6093Fd9cc143F9f058938868b2df2daF9A91d28";
     assert!(validate_address(address));
 
-    let address = "1234567890abcdef";
-    assert!(validate_address(address));
     // Failures
 
     let address = "0xc0ffee254729296a45a3885639AC7E10F9d54979!";
+    assert!(!validate_address(address));
+
+    let address = "0xC6093Fd9cc143F9";
+    assert!(!validate_address(address));
+
+    let address = "0x388C818CA8B9251b393131C08a736A67ccB192972";
     assert!(!validate_address(address));
 
     let address = "";
