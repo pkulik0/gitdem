@@ -18,6 +18,32 @@ impl SystemGit {
 }
 
 impl Git for SystemGit {
+    fn resolve_reference(&self, name: &str) -> Result<Hash, RemoteHelperError> {
+        let output = Command::new("git")
+            .current_dir(self.path.as_path())
+            .args(&["rev-parse", name])
+            .output()
+            .map_err(|e| RemoteHelperError::Failure {
+                action: "resolving reference".to_string(),
+                details: Some(e.to_string()),
+            })?;
+        if !output.status.success() {
+            return Err(RemoteHelperError::Failure {
+                action: "resolving reference".to_string(),
+                details: Some(String::from_utf8_lossy(&output.stderr).to_string()),
+            });
+        }
+        let stdout = String::from_utf8(output.stdout).map_err(|e| RemoteHelperError::Failure {
+            action: "reading stdout of git rev-parse".to_string(),
+            details: Some(e.to_string()),
+        })?;
+        let hash = Hash::from_str(stdout.trim()).map_err(|e| RemoteHelperError::Failure {
+            action: "parsing hash".to_string(),
+            details: Some(e.to_string()),
+        })?;
+        Ok(hash)
+    }
+
     fn get_object(&self, hash: Hash) -> Result<Object, RemoteHelperError> {
         let output = Command::new("git")
             .current_dir(self.path.as_path())
@@ -188,6 +214,39 @@ fn setup_git_repo() -> tempfile::TempDir {
     }
 
     temp_dir
+}
+
+#[test]
+fn test_resolve_reference() {
+    let repo_dir = setup_git_repo();
+
+    let mut file =
+        std::fs::File::create(repo_dir.path().join("abc")).expect("failed to create abc file");
+    file.write_all(b"example").expect("failed to write abc");
+
+    let cmd = Command::new("git")
+        .current_dir(repo_dir.path())
+        .args(&["add", "abc"])
+        .output()
+        .expect("failed to run git add");
+    if !cmd.status.success() {
+        panic!("git add failed: {}", String::from_utf8_lossy(&cmd.stderr));
+    }
+    let cmd = Command::new("git")
+        .current_dir(repo_dir.path())
+        .args(&["commit", "-m", "something"])
+        .output()
+        .expect("failed to run git hash-object");
+    if !cmd.status.success() {
+        panic!(
+            "git commit failed: {}",
+            String::from_utf8_lossy(&cmd.stderr)
+        );
+    }
+
+    let git = SystemGit::new(repo_dir.path().to_path_buf());
+    let hash = git.resolve_reference("HEAD").expect("failed to resolve reference");
+    assert_eq!(hash, get_head_hash(&repo_dir));
 }
 
 #[test]
