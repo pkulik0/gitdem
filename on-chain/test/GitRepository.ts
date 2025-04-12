@@ -304,6 +304,10 @@ describe("GitRepository", function () {
           hash: hash,
         }],
       })
+
+      const objectHashes = await gitRepository.getObjectHashes();
+      expect(objectHashes.length).to.equal(1);
+      expect(ethers.getBytes(objectHashes[0])).to.deep.equal(hash);
     });
 
     it("can push with a SHA1 hash", async function () {
@@ -319,6 +323,10 @@ describe("GitRepository", function () {
           hash: hash,
         }],
       })
+
+      const objectHashes = await gitRepository.getObjectHashes();
+      expect(objectHashes.length).to.equal(1);
+      expect(ethers.getBytes(objectHashes[0])).to.deep.equal(hash);
     });
 
     it("can't push with no data", async function () {

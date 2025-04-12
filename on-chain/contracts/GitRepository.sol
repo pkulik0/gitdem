@@ -22,6 +22,8 @@ contract GitRepository is Ownable2Step {
 
     /// @dev Padded SHA1 or SHA256 hash -> object data
     mapping(bytes32 => bytes) _objects;
+    /// @dev The hashes of all objects
+    bytes32[] _objectHashes;
 
     /// @param isSHA256 Whether to use SHA256 hashes. Once set, it cannot be changed.
     constructor(bool isSHA256) Ownable(msg.sender) {
@@ -30,7 +32,9 @@ contract GitRepository is Ownable2Step {
 
     /// @notice Sets the default branch of the repository.
     /// @param newDefaultBranch The name of the new default branch.
-    function setDefaultBranch(string calldata newDefaultBranch) public onlyOwner {
+    function setDefaultBranch(
+        string calldata newDefaultBranch
+    ) public onlyOwner {
         require(bytes(newDefaultBranch).length > 0, "Default branch is empty");
         validateRefName(newDefaultBranch);
         defaultBranchRef = string.concat("refs/heads/", newDefaultBranch);
@@ -58,13 +62,22 @@ contract GitRepository is Ownable2Step {
     function addObject(Object calldata object) internal {
         require(object.data.length > 0, "Object is empty");
         require(object.hash != bytes32(0), "Hash is empty");
+        require(_objects[object.hash].length == 0, "Object already exists");
 
-        bytes32 computedHash = _isSHA256 ? sha256(object.data) : SHA1.sha1(object.data);
+        bytes32 computedHash = _isSHA256
+            ? sha256(object.data)
+            : SHA1.sha1(object.data);
         require(computedHash == object.hash, "Hash mismatch");
 
-        require(_objects[object.hash].length == 0, "Object already exists");
         _objects[object.hash] = object.data;
+        _objectHashes.push(object.hash);
         emit ObjectAdded(object.hash);
+    }
+
+    /// @notice Returns the hashes of all objects.
+    /// @return The hashes of all objects.
+    function getObjectHashes() public view returns (bytes32[] memory) {
+        return _objectHashes;
     }
 
     /// @dev A struct representing a normal reference.
@@ -105,10 +118,7 @@ contract GitRepository is Ownable2Step {
         }
 
         RefSymbolic[] memory symbolic = new RefSymbolic[](1);
-        symbolic[0] = RefSymbolic({
-            name: "HEAD",
-            target: defaultBranchRef
-        });
+        symbolic[0] = RefSymbolic({name: "HEAD", target: defaultBranchRef});
 
         RefKV[] memory kv = new RefKV[](1);
         kv[0] = RefKV({
@@ -116,17 +126,15 @@ contract GitRepository is Ownable2Step {
             value: _isSHA256 ? "sha256" : "sha1"
         });
 
-        return Refs({
-            normal: normal,
-            symbolic: symbolic,
-            kv: kv
-        });
+        return Refs({normal: normal, symbolic: symbolic, kv: kv});
     }
 
     /// @notice Retrieves references by name.
     /// @param names The names of the references to retrieve.
     /// @return The hashes of the references.
-    function resolveRefs(string[] calldata names) public view returns (bytes32[] memory) {
+    function resolveRefs(
+        string[] calldata names
+    ) public view returns (bytes32[] memory) {
         bytes32[] memory hashes = new bytes32[](names.length);
         for (uint256 i = 0; i < names.length; i++) {
             bytes32 key = keccak256(bytes(names[i]));
@@ -195,7 +203,10 @@ contract GitRepository is Ownable2Step {
     /// @notice Pushes objects and references to the repository.
     /// @param data The data to push to the repository.
     function pushObjectsAndRefs(PushData calldata data) public onlyOwner {
-        require(data.objects.length > 0 || data.refs.length > 0, "No data to push");
+        require(
+            data.objects.length > 0 || data.refs.length > 0,
+            "No data to push"
+        );
 
         for (uint256 i = 0; i < data.objects.length; i++) {
             addObject(data.objects[i]);
