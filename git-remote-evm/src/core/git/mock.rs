@@ -24,7 +24,7 @@ impl Git for Mock {
             .objects
             .borrow()
             .iter()
-            .find(|object| object.hash == hash)
+            .find(|object| object.hash(true) == hash)
             .ok_or(RemoteHelperError::Missing {
                 what: "object not found".to_string(),
             })?

@@ -1,6 +1,6 @@
 use crate::core::git::Git;
 use crate::core::hash::Hash;
-use crate::core::object::Object;
+use crate::core::object::{Object, ObjectKind};
 use crate::core::remote_helper::error::RemoteHelperError;
 use std::io::{Read, Write};
 use std::path::PathBuf;
@@ -49,7 +49,7 @@ impl Git for SystemGit {
     fn save_object(&self, object: Object) -> Result<(), RemoteHelperError> {
         let mut cmd = Command::new("git")
             .current_dir(self.path.as_path())
-            .args(&["hash-object", "-w", "--stdin"])
+            .args(&["hash-object", "-t", &object.kind.to_string(), "-w", "--stdin"])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -99,13 +99,13 @@ impl Git for SystemGit {
             details: Some(e.to_string()),
         })?;
 
-        // TODO: uncomment after objects hash properly
-        // if hash != object.hash {
-        //     return Err(RemoteHelperError::Failure {
-        //         action: "saving object".to_string(),
-        //         details: Some(format!("object hash mismatch: {} != {}", hash, object.hash)),
-        //     });
-        // }
+        let object_hash = object.hash(true);
+        if hash != object_hash {
+            return Err(RemoteHelperError::Failure {
+                action: "saving object".to_string(),
+                details: Some(format!("object hash mismatch: {} != {}", hash, object_hash)),
+            });
+        }
 
         Ok(())
     }
@@ -133,7 +133,9 @@ fn test_save_object() {
     let git = SystemGit::new(repo_dir.path().to_path_buf());
 
     let data = b"test";
-    let hash = Hash::from_data_sha256(data).expect("failed to create hash");
-    let object = Object::new(hash, data.to_vec());
+    let object = Object {
+        kind: ObjectKind::Blob,
+        data: data.to_vec(),
+    };
     git.save_object(object).expect("failed to save object");
 }

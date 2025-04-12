@@ -14,7 +14,6 @@ pub enum Hash {
     Sha256(String),
 }
 
-#[cfg(test)]
 impl Hash {
     pub fn from_data_sha256(data: &[u8]) -> Result<Self, RemoteHelperError> {
         use sha2::{Digest, Sha256};

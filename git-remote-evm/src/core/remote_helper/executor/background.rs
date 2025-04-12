@@ -12,7 +12,7 @@ use std::str::FromStr;
 
 use super::Executor;
 use crate::core::hash::Hash;
-use crate::core::object::Object;
+use crate::core::object::{Object, ObjectKind};
 use crate::core::reference::ReferencePush;
 use crate::core::remote_helper::config::EvmWallet;
 use crate::core::{
@@ -152,13 +152,13 @@ impl Executor for Background {
 
         for object in objects {
             data.objects.push(ContractObject {
-                hash: FixedBytes::from_str(object.hash.to_string().as_str()).map_err(|e| {
+                hash: FixedBytes::from_str(object.hash(true).to_string().as_str()).map_err(|e| {
                     RemoteHelperError::Failure {
                         action: "pushing objects and refs".to_string(),
                         details: Some(e.to_string()),
                     }
                 })?,
-                data: Bytes::from(object.data.clone()),
+                data: Bytes::from(object.serialize()),
             });
         }
 
@@ -206,10 +206,8 @@ impl Executor for Background {
         })?;
 
         let data = object._0;
-        Ok(Object {
-            hash: hash.clone(),
-            data: data.to_vec(),
-        })
+        let object = Object::deserialize(&data)?;
+        Ok(object)
     }
 }
 
@@ -264,12 +262,12 @@ async fn test_list() {
 async fn test_push() {
     let executor = setup_test_executor().await;
 
-    let data = b"test".to_vec();
-    let hash = Hash::from_data_sha256(&data).expect("failed to create hash");
-    let objects = vec![Object {
-        hash: hash.clone(),
-        data: data,
-    }];
+    let object = Object {
+        kind: ObjectKind::Blob,
+        data: b"test".to_vec(),
+    };
+    let hash = object.hash(true);
+    let objects = vec![object];
     let refs = vec![ReferencePush {
         src: "refs/heads/main".to_string(),
         dest: hash.to_string(),
@@ -281,7 +279,7 @@ async fn test_push() {
     let expected = vec![
         Reference::Normal {
             name: "refs/heads/main".to_string(),
-            hash: hash,
+            hash,
         },
         Reference::Symbolic {
             name: "HEAD".to_string(),
@@ -299,12 +297,12 @@ async fn test_push() {
 async fn test_fetch() {
     let executor = setup_test_executor().await;
 
-    let data = b"test".to_vec();
-    let hash = Hash::from_data_sha256(&data).expect("failed to create hash");
-    let objects = vec![Object {
-        hash: hash.clone(),
-        data: data.clone(),
-    }];
+    let object = Object {
+        kind: ObjectKind::Blob,
+        data: b"test".to_vec(),
+    };
+    let hash = object.hash(true);
+    let objects = vec![object.clone()];
     let refs = vec![ReferencePush {
         src: "refs/heads/main".to_string(),
         dest: hash.to_string(),
@@ -312,7 +310,6 @@ async fn test_fetch() {
     }];
     executor.push(objects, refs).await.expect("failed to push");
 
-    let object = executor.fetch(hash.clone()).await.expect("failed to fetch object");
-    assert_eq!(object.hash, hash);
-    assert_eq!(object.data, data);
+    let fetched_object = executor.fetch(hash.clone()).await.expect("failed to fetch object");
+    assert_eq!(object, fetched_object);
 }

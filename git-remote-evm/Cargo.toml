@@ -11,18 +11,17 @@ mock = []
 alloy = { version = "0.13.0", features = ["full"] }
 async-trait = "0.1.88"
 flexi_logger = "0.29.8"
+hex = "0.4.3"
 log = "0.4.27"
 mime_guess = "2.0.5"
 open = "5.3.2"
 regex = "1.11.1"
 rust-embed = "8.6.0"
+sha1 = "0.10.6"
+sha2 = "0.10.8"
 tiny_http = "0.12.0"
 tokio = "1.44.1"
 
 [dev-dependencies]
-git2 = "0.20.1"
 tempfile = "3.19.1"
 reqwest = { version = "0.12.15", features = ["blocking"] }
-sha2 = "0.10.8"
-hex = "0.4.3"
-sha1 = "0.10.6"
