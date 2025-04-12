@@ -130,7 +130,6 @@ contract GitRepository is Ownable2Step {
         bytes32[] memory hashes = new bytes32[](names.length);
         for (uint256 i = 0; i < names.length; i++) {
             bytes32 key = keccak256(bytes(names[i]));
-            require(_references[key] != bytes32(0), "Ref not found");
             hashes[i] = _references[key];
         }
         return hashes;

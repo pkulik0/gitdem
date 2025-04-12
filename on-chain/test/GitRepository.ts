@@ -139,10 +139,11 @@ describe("GitRepository", function () {
         expect(ethers.getBytes(hashes[0])).to.deep.equal(hash);
       });
 
-      it("can't get non-existent", async function () {
+      it("non-existent returns empty hash", async function () {
         const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
 
-        await expect(gitRepository.resolveRefs(["refs/heads/main"])).to.be.revertedWith("Ref not found");
+        const hashes = await gitRepository.resolveRefs(["refs/heads/main"]);
+        expect(ethers.getBytes(hashes[0])).to.deep.equal(new Uint8Array(32));
       });
     });
 
