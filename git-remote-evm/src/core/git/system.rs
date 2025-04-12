@@ -2,8 +2,7 @@ use crate::core::git::Git;
 use crate::core::hash::Hash;
 use crate::core::object::{Object, ObjectKind};
 use crate::core::remote_helper::error::RemoteHelperError;
-use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::str::FromStr;
@@ -127,12 +126,48 @@ impl Git for SystemGit {
         Ok(())
     }
 
-    fn get_missing_objects(
+    fn list_missing_objects(
         &self,
         local: Hash,
         remote: Hash,
     ) -> Result<Vec<Hash>, RemoteHelperError> {
-        todo!()
+        let range = format!("{}..{}", local, remote);
+        let output = Command::new("git")
+            .current_dir(self.path.as_path())
+            .args(&["rev-list", "--objects", &range])
+            .output()
+            .map_err(|e| RemoteHelperError::Failure {
+                action: "running git rev-list".to_string(),
+                details: Some(e.to_string()),
+            })?;
+        if !output.status.success() {
+            return Err(RemoteHelperError::Failure {
+                action: "running git rev-list".to_string(),
+                details: Some(String::from_utf8_lossy(&output.stderr).to_string()),
+            });
+        }
+
+        let stdout = String::from_utf8(output.stdout).map_err(|e| RemoteHelperError::Failure {
+            action: "reading stdout of git rev-list".to_string(),
+            details: Some(e.to_string()),
+        })?;
+
+        let mut hashes = vec![];
+        for line in stdout.lines() {
+            let hash_str = line
+                .split_whitespace()
+                .next()
+                .ok_or(RemoteHelperError::Failure {
+                    action: "getting hash from line".to_string(),
+                    details: Some(line.to_string()),
+                })?;
+            let hash = Hash::from_str(hash_str).map_err(|e| RemoteHelperError::Failure {
+                action: "parsing hash".to_string(),
+                details: Some(e.to_string()),
+            })?;
+            hashes.push(hash);
+        }
+        Ok(hashes)
     }
 }
 
@@ -168,13 +203,28 @@ fn test_save_object() {
     git.save_object(object).expect("failed to save object");
 }
 
+#[cfg(test)]
+fn get_head_hash(repo_dir: &tempfile::TempDir) -> Hash {
+    let cmd = Command::new("git")
+        .current_dir(repo_dir.path())
+        .args(&["rev-parse", "HEAD"])
+        .output()
+        .expect("failed to run git rev-parse");
+    if !cmd.status.success() {
+        let stderr = String::from_utf8_lossy(&cmd.stderr);
+        panic!("git rev-parse failed: {}", stderr);
+    }
+    let stdout = String::from_utf8(cmd.stdout).expect("failed to convert stdout to string");
+    Hash::from_str(stdout.trim()).expect("failed to parse hash")
+}
+
 #[test]
 fn test_get_object() {
     let repo_dir = setup_git_repo();
 
-    let mut file = File::create(repo_dir.path().join("abc")).expect("failed to create abc file");
+    let mut file =
+        std::fs::File::create(repo_dir.path().join("abc")).expect("failed to create abc file");
     file.write_all(b"example").expect("failed to write abc");
-    drop(file);
 
     let cmd = Command::new("git")
         .current_dir(repo_dir.path())
@@ -196,20 +246,10 @@ fn test_get_object() {
         );
     }
 
-    let cmd = Command::new("git")
-        .current_dir(repo_dir.path())
-        .args(&["rev-parse", "HEAD"])
-        .output()
-        .expect("failed to run git rev-parse");
-    if !cmd.status.success() {
-        let stderr = String::from_utf8_lossy(&cmd.stderr);
-        panic!("git rev-parse failed: {}", stderr);
-    }
-    let stdout = String::from_utf8(cmd.stdout).expect("failed to convert stdout to string");
-    let hash = Hash::from_str(stdout.trim()).expect("failed to parse hash");
-
     let git = SystemGit::new(repo_dir.path().to_path_buf());
-    let object = git.get_object(hash).expect("failed to get object");
+    let object = git
+        .get_object(get_head_hash(&repo_dir))
+        .expect("failed to get object");
     assert_eq!(object.kind, ObjectKind::Commit);
     let commit_data =
         String::from_utf8(object.data).expect("failed to convert object data to string");
@@ -245,4 +285,53 @@ fn test_get_object() {
         .expect("failed to get blob object");
     assert_eq!(object.kind, ObjectKind::Blob);
     assert_eq!(object.data, b"example");
+}
+
+#[test]
+fn test_list_missing_objects() {
+    let repo_dir = setup_git_repo();
+
+    let mut file =
+        std::fs::File::create(repo_dir.path().join("abc")).expect("failed to create abc file");
+    file.write_all(b"example").expect("failed to write abc");
+
+    let cmd = Command::new("git")
+        .current_dir(repo_dir.path())
+        .args(&["add", "abc"])
+        .output()
+        .expect("failed to run git add");
+    if !cmd.status.success() {
+        panic!("git add failed: {}", String::from_utf8_lossy(&cmd.stderr));
+    }
+    let cmd = Command::new("git")
+        .current_dir(repo_dir.path())
+        .args(&["commit", "-m", "first commit"])
+        .output()
+        .expect("failed to run git hash-object");
+    if !cmd.status.success() {
+        panic!(
+            "git commit failed: {}",
+            String::from_utf8_lossy(&cmd.stderr)
+        );
+    }
+    let hash_before = get_head_hash(&repo_dir);
+
+    file.write_all(b"example2").expect("failed to write abc");
+    let cmd = Command::new("git")
+        .current_dir(repo_dir.path())
+        .args(&["commit", "-am", "second commit"])
+        .output()
+        .expect("failed to run git add");
+    if !cmd.status.success() {
+        panic!("git add failed: {}", String::from_utf8_lossy(&cmd.stderr));
+    }
+    let hash_after = get_head_hash(&repo_dir);
+
+    let git = SystemGit::new(repo_dir.path().to_path_buf());
+    let missing = git
+        .list_missing_objects(hash_before, hash_after.clone())
+        .expect("failed to get missing objects");
+
+    assert_eq!(missing.len(), 3); // blob, tree, commit
+    assert!(missing.contains(&hash_after));
 }

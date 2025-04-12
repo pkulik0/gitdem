@@ -37,7 +37,7 @@ impl Git for Mock {
         Ok(())
     }
 
-    fn get_missing_objects(
+    fn list_missing_objects(
         &self,
         local: Hash,
         remote: Hash,
