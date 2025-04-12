@@ -2,16 +2,11 @@ mod args;
 mod cli;
 mod core;
 #[cfg(test)]
-mod integration_tests;
+mod e2e_tests;
 
 use args::Args;
 use cli::CLI;
-use core::git::system::SystemGit;
-use core::remote_helper::error::RemoteHelperError;
-#[cfg(not(feature = "mock"))]
-use core::remote_helper::evm::Evm;
-#[cfg(feature = "mock")]
-use core::remote_helper::mock::Mock;
+use core::remote_helper::{error::RemoteHelperError, evm::Evm};
 use flexi_logger::{FileSpec, Logger, WriteMode};
 use log::{debug, error};
 use std::error::Error;
@@ -40,9 +35,9 @@ fn setup_panic_hook() {
     }));
 }
 
-#[cfg(not(feature = "mock"))]
 fn construct_remote_helper(args: Args) -> Result<Evm, RemoteHelperError> {
-    use core::kv_source::git_config::GitConfigSource;
+    use core::git::SystemGit;
+    use core::kv_source::GitConfigSource;
     use core::remote_helper::{config::Config, executor::create_executor};
 
     debug!("using evm remote helper");
@@ -62,35 +57,6 @@ fn construct_remote_helper(args: Args) -> Result<Evm, RemoteHelperError> {
     let executor = runtime.block_on(create_executor(&config.get_rpc()?, config.get_wallet()?))?;
 
     Evm::new(runtime, executor, git)
-}
-
-#[cfg(feature = "mock")]
-fn construct_remote_helper(_: Args) -> Result<Mock, RemoteHelperError> {
-    use core::kv_source::mock::MockConfig;
-    use core::hash::Hash;
-    use core::reference::{Keys, Reference};
-    use log::warn;
-
-    warn!("using mock remote helper");
-    Ok(Mock::new(vec![
-        // Reference {
-        //     value: Value::KeyValue(Keyword::ObjectFormat("sha1".to_string())),
-        //     name: "".to_string(),
-        //     attributes: vec![],
-        // },
-        // Reference {
-        //     value: Value::Hash(
-        //         Hash::from_str("4e1243bd22c66e76c2ba9eddc1f91394e57f9f83").expect("invalid hash"),
-        //     ),
-        //     name: "refs/heads/main".to_string(),
-        //     attributes: vec![],
-        // },
-        // Reference {
-        //     value: Value::SymRef("refs/heads/main".to_string()),
-        //     name: "HEAD".to_string(),
-        //     attributes: vec![],
-        // },
-    ]))
 }
 
 fn exit_with_error(msg: &str, e: Box<dyn Error>) -> ! {

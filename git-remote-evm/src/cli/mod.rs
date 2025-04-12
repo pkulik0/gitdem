@@ -10,9 +10,8 @@ mod error;
 
 #[cfg(test)]
 use crate::core::reference::Keys;
+use crate::core::remote_helper::MockRemoteHelper;
 use crate::core::remote_helper::RemoteHelper;
-#[cfg(test)]
-use crate::core::remote_helper::mock::Mock;
 use crate::core::{hash::Hash, reference::Push};
 use error::CLIError;
 
@@ -213,7 +212,10 @@ fn test_capabilities() {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
 
-    let remote_helper = Mock::new(vec![]);
+    let mut remote_helper = MockRemoteHelper::new();
+    remote_helper
+        .expect_capabilities()
+        .returning(|| vec!["*fetch", "*push"]);
     let mut cli = CLI::new(
         Box::new(remote_helper),
         &mut stdin,
@@ -233,7 +235,10 @@ fn test_list() {
     let mut stdout = Vec::new();
     let mut stderr = Vec::new();
 
-    let remote_helper = Mock::new(vec![]);
+    let mut remote_helper = MockRemoteHelper::new();
+    remote_helper
+        .expect_list()
+        .returning(|_is_for_push| Ok(vec![]));
     let mut cli = CLI::new(
         Box::new(remote_helper),
         &mut stdin,
@@ -266,7 +271,11 @@ fn test_list() {
         },
     ];
 
-    let remote_helper = Mock::new(refs.clone());
+    let refs_clone = refs.clone();
+    let mut remote_helper = MockRemoteHelper::new();
+    remote_helper
+        .expect_list()
+        .returning(move |_is_for_push| Ok(refs_clone.clone()));
     let mut cli = CLI::new(
         Box::new(remote_helper),
         &mut stdin,

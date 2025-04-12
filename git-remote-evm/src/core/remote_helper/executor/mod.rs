@@ -1,7 +1,6 @@
 mod background;
 mod browser;
 mod link_opener;
-mod mock;
 
 use crate::core::{
     hash::Hash,
@@ -11,9 +10,11 @@ use crate::core::{
 };
 use async_trait::async_trait;
 use background::Background;
+use mockall::automock;
 // use browser::Browser;
 // use link_opener::browser::BrowserLinkOpener;ƒ
 
+#[automock]
 #[async_trait]
 pub trait Executor {
     async fn list(&self) -> Result<Vec<Reference>, RemoteHelperError>;

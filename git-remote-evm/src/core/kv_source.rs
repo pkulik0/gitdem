@@ -1,8 +1,13 @@
-use super::KeyValueSource;
+use mockall::automock;
 use std::path::PathBuf;
 use std::process::Command;
 #[cfg(test)]
 use tempfile::TempDir;
+
+#[automock]
+pub trait KeyValueSource {
+    fn read(&self, key: &str) -> Option<String>;
+}
 
 pub struct GitConfigSource {
     dir: PathBuf,

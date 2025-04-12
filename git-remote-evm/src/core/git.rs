@@ -1,11 +1,24 @@
-use crate::core::git::Git;
+use super::remote_helper::error::RemoteHelperError;
 use crate::core::hash::Hash;
 use crate::core::object::{Object, ObjectKind};
-use crate::core::remote_helper::error::RemoteHelperError;
+use mockall::automock;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::str::FromStr;
+
+#[automock]
+pub trait Git {
+    fn resolve_reference(&self, name: &str) -> Result<Hash, RemoteHelperError>;
+    fn get_object(&self, hash: Hash) -> Result<Object, RemoteHelperError>;
+    fn save_object(&self, object: Object) -> Result<(), RemoteHelperError>;
+    fn list_missing_objects(
+        &self,
+        local: Hash,
+        remote: Hash,
+    ) -> Result<Vec<Hash>, RemoteHelperError>;
+    fn list_objects(&self, hash: Hash) -> Result<Vec<Hash>, RemoteHelperError>;
+}
 
 pub struct SystemGit {
     path: PathBuf,
