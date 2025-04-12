@@ -8,6 +8,7 @@ use alloy::providers::{Identity, ProviderBuilder, RootProvider};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::sol;
 use async_trait::async_trait;
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use super::Executor;
@@ -115,12 +116,9 @@ impl Executor for Background {
         let mut refs = vec![];
 
         for reference in normal {
-            // remove the 0x prefix
-            let raw_hash = &reference.hash.to_string()[2..];
-            let hash = Hash::from_str(raw_hash)?;
             refs.push(Reference::Normal {
                 name: reference.name,
-                hash,
+                hash: reference.hash.into(),
             });
         }
         for reference in symbolic {
@@ -152,12 +150,12 @@ impl Executor for Background {
 
         for object in objects {
             data.objects.push(ContractObject {
-                hash: FixedBytes::from_str(object.hash(true).to_string().as_str()).map_err(|e| {
-                    RemoteHelperError::Failure {
+                hash: FixedBytes::from_str(object.hash(true).to_string().as_str()).map_err(
+                    |e| RemoteHelperError::Failure {
                         action: "pushing objects and refs".to_string(),
                         details: Some(e.to_string()),
-                    }
-                })?,
+                    },
+                )?,
                 data: Bytes::from(object.serialize()),
             });
         }
@@ -196,18 +194,46 @@ impl Executor for Background {
     }
 
     async fn fetch(&self, hash: Hash) -> Result<Object, RemoteHelperError> {
-        let hash_bytes = FixedBytes::from_str(hash.to_string().as_str()).map_err(|e| RemoteHelperError::Failure {
-            action: "converting hash to fixed bytes".to_string(),
-            details: Some(e.to_string()),
+        let hash_bytes = FixedBytes::from_str(hash.to_string().as_str()).map_err(|e| {
+            RemoteHelperError::Failure {
+                action: "converting hash to fixed bytes".to_string(),
+                details: Some(e.to_string()),
+            }
         })?;
-        let object = self.contract.getObject(hash_bytes).call().await.map_err(|e| RemoteHelperError::Failure {
-            action: "fetching object".to_string(),
-            details: Some(e.to_string()),
-        })?;
+        let object = self
+            .contract
+            .getObject(hash_bytes)
+            .call()
+            .await
+            .map_err(|e| RemoteHelperError::Failure {
+                action: "fetching object".to_string(),
+                details: Some(e.to_string()),
+            })?;
 
         let data = object._0;
         let object = Object::deserialize(&data)?;
         Ok(object)
+    }
+
+    async fn resolve_references(
+        &self,
+        names: Vec<String>,
+    ) -> Result<HashMap<String, Hash>, RemoteHelperError> {
+        let response = self
+            .contract
+            .resolveRefs(names.clone())
+            .call()
+            .await
+            .map_err(|e| RemoteHelperError::Failure {
+                action: "resolving references".to_string(),
+                details: Some(e.to_string()),
+            })?;
+
+        let mut refs = HashMap::new();
+        for (name, hash) in names.into_iter().zip(response._0.into_iter()) {
+            refs.insert(name, hash.into());
+        }
+        Ok(refs)
     }
 }
 
@@ -310,6 +336,35 @@ async fn test_fetch() {
     }];
     executor.push(objects, refs).await.expect("failed to push");
 
-    let fetched_object = executor.fetch(hash.clone()).await.expect("failed to fetch object");
+    let fetched_object = executor
+        .fetch(hash.clone())
+        .await
+        .expect("failed to fetch object");
     assert_eq!(object, fetched_object);
+}
+
+#[tokio::test]
+async fn test_get_references() {
+    let executor = setup_test_executor().await;
+
+    let object = Object {
+        kind: ObjectKind::Blob,
+        data: b"test".to_vec(),
+    };
+    let hash = object.hash(true);
+    let objects = vec![object];
+    let ref_name = "refs/heads/main".to_string();
+    let refs = vec![ReferencePush {
+        src: ref_name.clone(),
+        dest: hash.to_string(),
+        is_force: false,
+    }];
+    executor.push(objects, refs).await.expect("failed to push");
+
+    let refs = executor
+        .resolve_references(vec![ref_name.clone()])
+        .await
+        .expect("failed to get references");
+    assert_eq!(refs.len(), 1);
+    assert_eq!(refs[&ref_name], hash);
 }

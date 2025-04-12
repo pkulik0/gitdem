@@ -13,6 +13,7 @@ use background::Background;
 // use browser::Browser;
 // use link_opener::browser::BrowserLinkOpener;
 use async_trait::async_trait;
+use std::collections::HashMap;
 
 #[async_trait]
 pub trait Executor {
@@ -23,6 +24,10 @@ pub trait Executor {
         refs: Vec<ReferencePush>,
     ) -> Result<(), RemoteHelperError>;
     async fn fetch(&self, hash: Hash) -> Result<Object, RemoteHelperError>;
+    async fn resolve_references(
+        &self,
+        names: Vec<String>,
+    ) -> Result<HashMap<String, Hash>, RemoteHelperError>;
 }
 
 pub async fn create_executor(

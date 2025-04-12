@@ -1,3 +1,4 @@
+use alloy::primitives::FixedBytes;
 use regex::Regex;
 use std::{fmt, str::FromStr, sync::LazyLock};
 
@@ -44,6 +45,20 @@ impl FromStr for Hash {
                 details: Some(format!("invalid hash: {:?}", s)),
             })
         }
+    }
+}
+
+impl From<FixedBytes<20>> for Hash {
+    fn from(value: FixedBytes<20>) -> Self {
+        let str = value.to_string()[2..].to_string();
+        Self::Sha1(str)
+    }
+}
+
+impl From<FixedBytes<32>> for Hash {
+    fn from(value: FixedBytes<32>) -> Self {
+        let str = value.to_string()[2..].to_string();
+        Self::Sha256(str)
     }
 }
 
