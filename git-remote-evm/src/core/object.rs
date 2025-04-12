@@ -48,10 +48,6 @@ pub struct Object {
 }
 
 impl Object {
-    pub fn new(kind: ObjectKind, data: Vec<u8>) -> Self {
-        Self { kind, data }
-    }
-
     pub fn serialize(&self) -> Vec<u8> {
         let mut data: Vec<u8> = Vec::new();
         data.extend_from_slice(self.kind.to_string().as_bytes());
@@ -130,9 +126,15 @@ fn test_object_deserialize() {
 
 #[test]
 fn test_object_serialize() {
-    let object = Object::new(ObjectKind::Blob, vec![]);
+    let object = Object {
+        kind: ObjectKind::Blob,
+        data: vec![],
+    };
     assert_eq!(object.serialize(), b"blob 0\0");
 
-    let object = Object::new(ObjectKind::Blob, b"test".to_vec());
+    let object = Object {
+        kind: ObjectKind::Blob,
+        data: b"test".to_vec(),
+    };
     assert_eq!(object.serialize(), b"blob 4\0test");
 }

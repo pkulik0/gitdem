@@ -12,7 +12,9 @@ use std::str::FromStr;
 
 use super::Executor;
 use crate::core::hash::Hash;
-use crate::core::object::{Object, ObjectKind};
+use crate::core::object::Object;
+#[cfg(test)]
+use crate::core::object::ObjectKind;
 use crate::core::remote_helper::config::Wallet;
 use crate::core::{
     reference::{Keys, Reference},
@@ -239,15 +241,12 @@ impl Executor for Background {
     }
 
     async fn list_objects(&self) -> Result<Vec<Hash>, RemoteHelperError> {
-        let response = self
-            .contract
-            .getObjectHashes()
-            .call()
-            .await
-            .map_err(|e| RemoteHelperError::Failure {
+        let response = self.contract.getObjectHashes().call().await.map_err(|e| {
+            RemoteHelperError::Failure {
                 action: "listing objects".to_string(),
                 details: Some(e.to_string()),
-            })?;
+            }
+        })?;
 
         let hashes = response._0.into_iter().map(|h| h.into()).collect();
         Ok(hashes)
@@ -387,7 +386,10 @@ async fn test_get_references() {
 async fn test_list_objects() {
     let executor = setup_test_executor().await;
 
-    let hashes = executor.list_objects().await.expect("failed to list objects");
+    let hashes = executor
+        .list_objects()
+        .await
+        .expect("failed to list objects");
     assert_eq!(hashes.len(), 0);
 
     let object = Object {
@@ -402,7 +404,10 @@ async fn test_list_objects() {
     }];
     executor.push(objects, refs).await.expect("failed to push");
 
-    let hashes = executor.list_objects().await.expect("failed to list objects");
+    let hashes = executor
+        .list_objects()
+        .await
+        .expect("failed to list objects");
     assert_eq!(hashes.len(), 1);
     assert_eq!(hashes[0], hash);
 }
