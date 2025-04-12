@@ -31,7 +31,7 @@ pub async fn create_executor(
     wallet_type: EvmWallet,
 ) -> Result<Box<dyn Executor>, RemoteHelperError> {
     #[cfg(test)]
-    return Ok(Box::new(Mock::new()));
+    return Ok(Box::new(Mock::new(vec![], vec![])));
 
     match wallet_type.is_extension() {
         // true => Ok(Box::new(Browser::new(Box::new(BrowserLinkOpener))?)),
