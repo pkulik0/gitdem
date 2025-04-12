@@ -1,4 +1,4 @@
-use super::Config;
+use super::KeyValueSource;
 use std::collections::HashMap;
 
 pub struct MockConfig {
@@ -17,7 +17,7 @@ impl MockConfig {
     }
 }
 
-impl Config for MockConfig {
+impl KeyValueSource for MockConfig {
     fn read(&self, key: &str) -> Option<String> {
         self.values.get(key).cloned()
     }

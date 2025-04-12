@@ -3,15 +3,16 @@ mod browser;
 mod link_opener;
 mod mock;
 
-use super::{Wallet, config::EvmWallet};
 use crate::core::{
-    hash::Hash, object::Object, reference::Reference, remote_helper::error::RemoteHelperError,
+    hash::Hash,
+    object::Object,
+    reference::Reference,
+    remote_helper::{config::Wallet, error::RemoteHelperError},
 };
+use async_trait::async_trait;
 use background::Background;
 // use browser::Browser;
-// use link_opener::browser::BrowserLinkOpener;
-use async_trait::async_trait;
-use mock::Mock;
+// use link_opener::browser::BrowserLinkOpener;ƒ
 
 #[async_trait]
 pub trait Executor {
@@ -28,14 +29,11 @@ pub trait Executor {
 
 pub async fn create_executor(
     rpc: &str,
-    wallet_type: EvmWallet,
+    wallet: Wallet,
 ) -> Result<Box<dyn Executor>, RemoteHelperError> {
-    #[cfg(test)]
-    return Ok(Box::new(Mock::new(vec![], vec![])));
-
-    match wallet_type.is_extension() {
+    match wallet {
         // true => Ok(Box::new(Browser::new(Box::new(BrowserLinkOpener))?)),
-        true => todo!(),
-        false => Ok(Box::new(Background::new(wallet_type, rpc, [0; 20]).await?)),
+        Wallet::Browser => todo!(),
+        _ => Ok(Box::new(Background::new(wallet, rpc, [0; 20]).await?)),
     }
 }

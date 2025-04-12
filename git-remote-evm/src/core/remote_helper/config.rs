@@ -3,10 +3,9 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use crate::core::config::Config;
+use crate::core::kv_source::KeyValueSource;
 #[cfg(test)]
-use crate::core::config::mock::MockConfig;
-use crate::core::remote_helper::Wallet;
+use crate::core::kv_source::mock::MockConfig;
 use crate::core::remote_helper::error::RemoteHelperError;
 #[cfg(test)]
 use std::collections::HashMap;
@@ -16,18 +15,12 @@ const RPC_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^https?|wss?:\/\/[^\s]+$").expect("failed to create rpc regex"));
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum EvmWallet {
+pub enum Wallet {
     #[cfg(test)]
     PrivateKey(String),
     Keypair(PathBuf),
     Environment,
     Browser,
-}
-
-impl Wallet for EvmWallet {
-    fn is_extension(&self) -> bool {
-        matches!(self, EvmWallet::Browser)
-    }
 }
 
 const DEFAULT_RPC_ETH: &str = "https://eth.llamarpc.com";
@@ -43,17 +36,17 @@ fn get_default_rpc(protocol: &str) -> Option<&str> {
     }
 }
 
-pub struct EvmConfig {
+pub struct Config {
     protocol: String,
-    config: Box<dyn Config>,
+    config: Box<dyn KeyValueSource>,
 }
 
-impl EvmConfig {
+impl Config {
     fn to_key(&self, key: &str) -> String {
         format!("{}.{}.{}", CONFIG_PREFIX, self.protocol, key)
     }
 
-    pub fn new(protocol: String, config: Box<dyn Config>) -> Self {
+    pub fn new(protocol: String, config: Box<dyn KeyValueSource>) -> Self {
         Self { protocol, config }
     }
 
@@ -75,23 +68,23 @@ impl EvmConfig {
         }
     }
 
-    pub fn get_wallet(&self) -> Result<EvmWallet, RemoteHelperError> {
+    pub fn get_wallet(&self) -> Result<Wallet, RemoteHelperError> {
         match self.config.read(self.to_key("wallet").as_str()) {
             Some(wallet_type) => match wallet_type.as_str() {
                 "keypair" => match self.config.read(self.to_key("keypair").as_str()) {
-                    Some(keypair_path) => Ok(EvmWallet::Keypair(PathBuf::from(keypair_path))),
+                    Some(keypair_path) => Ok(Wallet::Keypair(PathBuf::from(keypair_path))),
                     None => Err(RemoteHelperError::Missing {
                         what: "keypair path".to_string(),
                     }),
                 },
-                "environment" => Ok(EvmWallet::Environment),
-                "browser" => Ok(EvmWallet::Browser),
+                "environment" => Ok(Wallet::Environment),
+                "browser" => Ok(Wallet::Browser),
                 _ => Err(RemoteHelperError::Invalid {
                     what: "wallet type".to_string(),
                     value: wallet_type,
                 }),
             },
-            None => Ok(EvmWallet::Browser),
+            None => Ok(Wallet::Browser),
         }
     }
 }
@@ -99,17 +92,17 @@ impl EvmConfig {
 #[test]
 fn test_rpc() {
     let protocol = "eth";
-    let evm_config = EvmConfig::new(protocol.to_string(), Box::new(MockConfig::new()));
+    let evm_config = Config::new(protocol.to_string(), Box::new(MockConfig::new()));
     let rpc = evm_config.get_rpc().expect("failed to get rpc");
     assert_eq!(rpc, DEFAULT_RPC_ETH);
 
     let protocol = "arb1";
-    let evm_config = EvmConfig::new(protocol.to_string(), Box::new(MockConfig::new()));
+    let evm_config = Config::new(protocol.to_string(), Box::new(MockConfig::new()));
     let rpc = evm_config.get_rpc().expect("failed to get rpc");
     assert_eq!(rpc, DEFAULT_RPC_ARB1);
 
     let protocol = "avax";
-    let evm_config = EvmConfig::new(protocol.to_string(), Box::new(MockConfig::new()));
+    let evm_config = Config::new(protocol.to_string(), Box::new(MockConfig::new()));
     let rpc = evm_config.get_rpc().expect("failed to get rpc");
     assert_eq!(rpc, DEFAULT_RPC_AVAX);
 
@@ -118,7 +111,7 @@ fn test_rpc() {
         evm_config.to_key("rpc"),
         another_rpc.to_string(),
     )]));
-    let evm_config = EvmConfig::new(protocol.to_string(), Box::new(mock_config));
+    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
     let rpc = evm_config.get_rpc().expect("failed to get rpc");
     assert_eq!(rpc, another_rpc);
 
@@ -127,14 +120,14 @@ fn test_rpc() {
         evm_config.to_key("rpc"),
         invalid_rpc.to_string(),
     )]));
-    let evm_config = EvmConfig::new(protocol.to_string(), Box::new(mock_config));
+    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
     evm_config
         .get_rpc()
         .expect_err("should fail because of invalid rpc");
 
     let protocol = "unknown";
     let mock_config = MockConfig::new();
-    let evm_config = EvmConfig::new(protocol.to_string(), Box::new(mock_config));
+    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
     evm_config
         .get_rpc()
         .expect_err("should fail because of unknown protocol");
@@ -144,34 +137,34 @@ fn test_rpc() {
 fn test_wallet() {
     // default
     let mock_config = MockConfig::new();
-    let evm_config = EvmConfig::new("eth".to_string(), Box::new(mock_config));
+    let evm_config = Config::new("eth".to_string(), Box::new(mock_config));
     let wallet = evm_config.get_wallet().expect("failed to get wallet type");
-    assert_eq!(wallet, EvmWallet::Browser);
+    assert_eq!(wallet, Wallet::Browser);
 
     // browser
     let mock_config = MockConfig::new_with_values(HashMap::from([(
         evm_config.to_key("wallet"),
         "browser".to_string(),
     )]));
-    let evm_config = EvmConfig::new("eth".to_string(), Box::new(mock_config));
+    let evm_config = Config::new("eth".to_string(), Box::new(mock_config));
     let wallet_type = evm_config.get_wallet().expect("failed to get wallet type");
-    assert_eq!(wallet_type, EvmWallet::Browser);
+    assert_eq!(wallet_type, Wallet::Browser);
 
     // keypair - path provided
     let mock_config = MockConfig::new_with_values(HashMap::from([
         (evm_config.to_key("wallet"), "keypair".to_string()),
         (evm_config.to_key("keypair"), "/path/to/keypair".to_string()),
     ]));
-    let evm_config = EvmConfig::new("eth".to_string(), Box::new(mock_config));
+    let evm_config = Config::new("eth".to_string(), Box::new(mock_config));
     let wallet_type = evm_config.get_wallet().expect("failed to get wallet type");
-    assert_eq!(wallet_type, EvmWallet::Keypair("/path/to/keypair".into()));
+    assert_eq!(wallet_type, Wallet::Keypair("/path/to/keypair".into()));
 
     // keypair - path not provided
     let mock_config = MockConfig::new_with_values(HashMap::from([(
         evm_config.to_key("wallet"),
         "keypair".to_string(),
     )]));
-    let evm_config = EvmConfig::new("eth".to_string(), Box::new(mock_config));
+    let evm_config = Config::new("eth".to_string(), Box::new(mock_config));
     evm_config.get_wallet().expect_err("should fail");
 
     // environment
@@ -179,15 +172,15 @@ fn test_wallet() {
         evm_config.to_key("wallet"),
         "environment".to_string(),
     )]));
-    let evm_config = EvmConfig::new("eth".to_string(), Box::new(mock_config));
+    let evm_config = Config::new("eth".to_string(), Box::new(mock_config));
     let wallet_type = evm_config.get_wallet().expect("failed to get wallet type");
-    assert_eq!(wallet_type, EvmWallet::Environment);
+    assert_eq!(wallet_type, Wallet::Environment);
 
     // invalid wallet type
     let mock_config = MockConfig::new_with_values(HashMap::from([(
         evm_config.to_key("wallet"),
         "invalid".to_string(),
     )]));
-    let evm_config = EvmConfig::new("eth".to_string(), Box::new(mock_config));
+    let evm_config = Config::new("eth".to_string(), Box::new(mock_config));
     evm_config.get_wallet().expect_err("should fail");
 }

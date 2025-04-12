@@ -1,8 +1,7 @@
+pub mod git_config;
 #[cfg(any(test, feature = "mock"))]
 pub mod mock;
 
-pub mod git;
-
-pub trait Config {
+pub trait KeyValueSource {
     fn read(&self, key: &str) -> Option<String>;
 }

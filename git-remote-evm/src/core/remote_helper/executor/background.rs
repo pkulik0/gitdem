@@ -13,7 +13,7 @@ use std::str::FromStr;
 use super::Executor;
 use crate::core::hash::Hash;
 use crate::core::object::{Object, ObjectKind};
-use crate::core::remote_helper::config::EvmWallet;
+use crate::core::remote_helper::config::Wallet;
 use crate::core::{
     reference::{Keys, Reference},
     remote_helper::error::RemoteHelperError,
@@ -43,26 +43,26 @@ pub struct Background {
 
 impl Background {
     pub async fn new(
-        wallet_type: EvmWallet,
+        wallet_type: Wallet,
         rpc: &str,
         address: [u8; 20],
     ) -> Result<Self, RemoteHelperError> {
         let private_key = match wallet_type {
             #[cfg(test)]
-            EvmWallet::PrivateKey(private_key) => private_key,
-            EvmWallet::Browser => {
+            Wallet::PrivateKey(private_key) => private_key,
+            Wallet::Browser => {
                 return Err(RemoteHelperError::Failure {
                     action: "creating background executor".to_string(),
                     details: Some("Browser wallet not supported".to_string()),
                 });
             }
-            EvmWallet::Keypair(path) => {
+            Wallet::Keypair(path) => {
                 std::fs::read_to_string(path).map_err(|e| RemoteHelperError::Failure {
                     action: "creating background executor".to_string(),
                     details: Some(e.to_string()),
                 })?
             }
-            EvmWallet::Environment => {
+            Wallet::Environment => {
                 std::env::var("GITDEM_PRIVATE_KEY").map_err(|e| RemoteHelperError::Failure {
                     action: "creating background executor".to_string(),
                     details: Some(e.to_string()),
@@ -273,7 +273,7 @@ async fn setup_test_executor() -> Background {
         .expect("failed to deploy contract");
 
     let executor = Background::new(
-        EvmWallet::PrivateKey(test_signer_pk.to_string()),
+        Wallet::PrivateKey(test_signer_pk.to_string()),
         test_rpc,
         contract.address().to_owned().into(),
     )

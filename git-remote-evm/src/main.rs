@@ -42,17 +42,31 @@ fn setup_panic_hook() {
 
 #[cfg(not(feature = "mock"))]
 fn construct_remote_helper(args: Args) -> Result<Evm, RemoteHelperError> {
-    use core::config::git::GitConfig;
+    use core::kv_source::git_config::GitConfigSource;
+    use core::remote_helper::{config::Config, executor::create_executor};
 
     debug!("using evm remote helper");
-    let config = Box::new(GitConfig::new(args.directory().clone()));
+    let config = Box::new(GitConfigSource::new(args.directory().clone()));
     let git = Box::new(SystemGit::new(args.directory().clone()));
-    Evm::new(args, config, git)
+
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| RemoteHelperError::Failure {
+            action: "creating runtime".to_string(),
+            details: Some(e.to_string()),
+        })?;
+
+    let protocol = args.protocol().to_string();
+    let config = Config::new(protocol, config);
+    let executor = runtime.block_on(create_executor(&config.get_rpc()?, config.get_wallet()?))?;
+
+    Evm::new(runtime, executor, git)
 }
 
 #[cfg(feature = "mock")]
 fn construct_remote_helper(_: Args) -> Result<Mock, RemoteHelperError> {
-    use core::config::mock::MockConfig;
+    use core::kv_source::mock::MockConfig;
     use core::hash::Hash;
     use core::reference::{Keys, Reference};
     use log::warn;

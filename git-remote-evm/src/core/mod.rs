@@ -1,4 +1,4 @@
-pub mod config;
+pub mod kv_source;
 pub mod hash;
 pub mod object;
 pub mod reference;

@@ -1,20 +1,20 @@
-use super::Config;
+use super::KeyValueSource;
 use std::path::PathBuf;
 use std::process::Command;
 #[cfg(test)]
 use tempfile::TempDir;
 
-pub struct GitConfig {
+pub struct GitConfigSource {
     dir: PathBuf,
 }
 
-impl GitConfig {
+impl GitConfigSource {
     pub fn new(dir: PathBuf) -> Self {
         Self { dir }
     }
 }
 
-impl Config for GitConfig {
+impl KeyValueSource for GitConfigSource {
     fn read(&self, key: &str) -> Option<String> {
         let cmd = Command::new("git")
             .arg("config")
@@ -58,7 +58,7 @@ fn test_git_config() {
 
     let key = "some.key";
     let value = "123456";
-    let config = GitConfig::new(repo_dir.path().to_path_buf());
+    let config = GitConfigSource::new(repo_dir.path().to_path_buf());
 
     let cmd = Command::new("git")
         .arg("config")

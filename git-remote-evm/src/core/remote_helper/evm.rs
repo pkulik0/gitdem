@@ -1,10 +1,7 @@
-use crate::args::Args;
-use crate::core::config::Config;
 use crate::core::git::Git;
 use crate::core::hash::Hash;
 use crate::core::reference::{Push, Reference};
-use crate::core::remote_helper::config::EvmConfig;
-use crate::core::remote_helper::executor::{Executor, create_executor};
+use crate::core::remote_helper::executor::Executor;
 use crate::core::remote_helper::{RemoteHelper, RemoteHelperError};
 use std::collections::HashSet;
 
@@ -16,23 +13,10 @@ pub struct Evm {
 
 impl Evm {
     pub fn new(
-        args: Args,
-        config: Box<dyn Config>,
+        runtime: tokio::runtime::Runtime,
+        executor: Box<dyn Executor>,
         git: Box<dyn Git>,
     ) -> Result<Self, RemoteHelperError> {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| RemoteHelperError::Failure {
-                action: "creating runtime".to_string(),
-                details: Some(e.to_string()),
-            })?;
-
-        let protocol = args.protocol().to_string();
-        let config = EvmConfig::new(protocol, config);
-        let executor =
-            runtime.block_on(create_executor(&config.get_rpc()?, config.get_wallet()?))?;
-
         Ok(Self {
             runtime,
             executor,
@@ -86,14 +70,17 @@ impl RemoteHelper for Evm {
                 }
 
                 if remote_hash.is_empty() {
-                    let all_remote_object_hashes: &HashSet<Hash> = match all_remote_object_hashes.get() {
-                        Some(hashes) => hashes,
-                        None => {
-                            let hashes = self.executor.list_objects().await?;
-                            let _ = all_remote_object_hashes.set(hashes.into_iter().collect());
-                            all_remote_object_hashes.get().expect("should be set right above")
-                        }
-                    };
+                    let all_remote_object_hashes: &HashSet<Hash> =
+                        match all_remote_object_hashes.get() {
+                            Some(hashes) => hashes,
+                            None => {
+                                let hashes = self.executor.list_objects().await?;
+                                let _ = all_remote_object_hashes.set(hashes.into_iter().collect());
+                                all_remote_object_hashes
+                                    .get()
+                                    .expect("should be set right above")
+                            }
+                        };
 
                     let local_ref_hashes: HashSet<Hash> = self
                         .git
