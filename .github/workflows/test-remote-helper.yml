@@ -26,7 +26,10 @@ jobs:
         git config --global user.name "github-actions"
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
-    - name: Build
+    - name: Install on-chain dependencies
+      run: npm install
+      working-directory: on-chain
+    - name: Build remote-helper
       run: cargo build --verbose
       working-directory: git-remote-evm
     # TODO: Make it work without --test-threads=1
@@ -34,8 +37,8 @@ jobs:
     # There's a nonce mismatch when running tests in parallel
     - name: Run tests
       run: |
-        npx hardhat node &
-        sleep 3 &&
+        (cd ../on-chain && npx hardhat node) &
+        sleep 5 &&
         cargo test --verbose -- --test-threads=1
       working-directory: git-remote-evm
 
