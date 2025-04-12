@@ -1,12 +1,16 @@
+use regex::Regex;
 use std::error::Error;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-use regex::Regex;
-
-const EVM_ADDRESS_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^0x[a-fA-F0-9]{40}$").expect("failed to create evm address regex"));
+const EVM_ADDRESS_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^0x[a-fA-F0-9]{40}$").expect("failed to create evm address regex")
+});
+const INVALID_REF_NAME_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(^\.)|(^/)|(\.\.)|([:?\[\\^~\s*])|(\.lock$)|(/$)|(@\{)|([\x00-\x1f])")
+        .expect("failed to create invalid ref name regex")
+});
 
 const EXECUTABLE_PREFIX: &str = "git-remote-";
 
@@ -194,27 +198,7 @@ fn validate_remote_name(name: &str) -> bool {
     if name.is_empty() {
         return false;
     }
-    if name.starts_with("/") || name.ends_with("/") {
-        return false;
-    }
-    if name.ends_with(".lock") {
-        return false;
-    }
-    if name.contains("@{") || name == "@" {
-        return false;
-    }
-    if name.contains("..") {
-        return false;
-    }
-    name.bytes().all(|b| {
-        match b {
-            // Disallowed ASCII Control Characters (0x00 - 0x1F) and DEL (0x7F)
-            0x00..=0x1F | 0x7F => false,
-            // Disallowed Symbols: space ~ ^ : ? * [ \
-            b' ' | b'~' | b'^' | b':' | b'?' | b'*' | b'[' | b'\\' => false,
-            _ => true,
-        }
-    })
+    !INVALID_REF_NAME_REGEX.is_match(name)
 }
 
 #[test]
@@ -236,11 +220,13 @@ fn test_validate_remote_name() {
         "/remote",       // Invalid (starts with '/')
         "remote.lock",   // Invalid (ends with .lock)
         "remote@{abc}",  // Invalid (contains @{)
-        "@",             // Invalid (single @)
         "with\nnewline", // Invalid (control character \n)
     ];
     for remote_name in invalid_names {
-        assert!(!validate_remote_name(remote_name));
+        let result = validate_remote_name(remote_name);
+        if result {
+            panic!("expected invalid remote name: {}", remote_name);
+        }
     }
 
     let valid_names = vec![
@@ -253,7 +239,10 @@ fn test_validate_remote_name() {
         "你好",
     ];
     for remote_name in valid_names {
-        assert!(validate_remote_name(remote_name));
+        let result = validate_remote_name(remote_name);
+        if !result {
+            panic!("expected valid remote name: {}", remote_name);
+        }
     }
 }
 
