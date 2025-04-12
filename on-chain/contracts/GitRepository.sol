@@ -123,13 +123,17 @@ contract GitRepository is Ownable2Step {
         });
     }
 
-    /// @notice Retrieves a reference by name.
-    /// @param name The name of the reference to retrieve.
-    /// @return The hash of the reference.
-    function getRef(string calldata name) public view returns (bytes32) {
-        bytes32 key = keccak256(bytes(name));
-        require(_references[key] != bytes32(0), "Ref not found");
-        return _references[key];
+    /// @notice Retrieves references by name.
+    /// @param names The names of the references to retrieve.
+    /// @return The hashes of the references.
+    function resolveRefs(string[] calldata names) public view returns (bytes32[] memory) {
+        bytes32[] memory hashes = new bytes32[](names.length);
+        for (uint256 i = 0; i < names.length; i++) {
+            bytes32 key = keccak256(bytes(names[i]));
+            require(_references[key] != bytes32(0), "Ref not found");
+            hashes[i] = _references[key];
+        }
+        return hashes;
     }
 
     /// @notice Validates a reference name.

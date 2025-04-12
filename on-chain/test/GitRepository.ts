@@ -135,14 +135,14 @@ describe("GitRepository", function () {
           }],
         })
 
-        const value = await gitRepository.getRef("refs/heads/main");
-        expect(ethers.getBytes(value)).to.deep.equal(hash);
+        const hashes = await gitRepository.resolveRefs(["refs/heads/main"]);
+        expect(ethers.getBytes(hashes[0])).to.deep.equal(hash);
       });
 
       it("can't get non-existent", async function () {
         const { gitRepository } = await loadFixture(deployGitRepositoryFixture);
 
-        await expect(gitRepository.getRef("refs/heads/main")).to.be.revertedWith("Ref not found");
+        await expect(gitRepository.resolveRefs(["refs/heads/main"])).to.be.revertedWith("Ref not found");
       });
     });
 
@@ -400,8 +400,8 @@ describe("GitRepository", function () {
           hash: hash,
         }],
       });
-      const value = await gitRepository.getRef("refs/heads/main");
-      expect(ethers.getBytes(value)).to.deep.equal(hash);
+      const hashes = await gitRepository.resolveRefs(["refs/heads/main"]);
+      expect(ethers.getBytes(hashes[0])).to.deep.equal(hash);
 
       const otherData = crypto.randomBytes(100);
       const otherHash = generateHash(true, otherData);
@@ -413,8 +413,8 @@ describe("GitRepository", function () {
           hash: otherHash,
         }],
       });
-      const newValue = await gitRepository.getRef("refs/heads/main");
-      expect(ethers.getBytes(newValue)).to.deep.equal(otherHash);
+      const newHashes = await gitRepository.resolveRefs(["refs/heads/main"]);
+      expect(ethers.getBytes(newHashes[0])).to.deep.equal(otherHash);
     });
 
     it("can delete a ref", async function () {
