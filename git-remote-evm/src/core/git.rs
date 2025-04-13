@@ -35,7 +35,7 @@ impl SystemGit {
 }
 
 impl SystemGit {
-    fn rev_parse(&self, name: &str) -> Result<Vec<Hash>, RemoteHelperError> {
+    fn rev_list(&self, name: &str) -> Result<Vec<Hash>, RemoteHelperError> {
         let output = Command::new("git")
             .current_dir(self.path.as_path())
             .env_remove("GIT_DIR")
@@ -297,7 +297,7 @@ impl Git for SystemGit {
             range,
             self.path.to_string_lossy()
         );
-        let hashes = self.rev_parse(&range)?;
+        let hashes = self.rev_list(&range)?;
         debug!("got missing objects: {:?}", hashes);
         Ok(hashes)
     }
@@ -308,7 +308,7 @@ impl Git for SystemGit {
             hash,
             self.path.to_string_lossy()
         );
-        let hashes = self.rev_parse(&hash.to_string())?;
+        let hashes = self.rev_list(&hash.to_string())?;
         debug!("got objects: {:?}", hashes);
         Ok(hashes)
     }
