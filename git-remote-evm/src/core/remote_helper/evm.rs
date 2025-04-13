@@ -119,8 +119,11 @@ impl RemoteHelper for Evm {
                 });
             }
 
+            if objects.is_empty() && references.is_empty() {
+                return Ok(());
+            }
             self.executor
-                .push(objects.into_iter().collect(), references)
+                .push(objects.into_iter().collect(), references, self.git.is_sha256()?)
                 .await
         })
     }
@@ -263,7 +266,7 @@ fn test_push() {
     let mut executor = Box::new(MockExecutor::new());
     executor
         .expect_push()
-        .returning(|_objects, _references| Ok(()));
+        .returning(|_objects, _references, _is_sha256| Ok(()));
     let evm = Evm::new(runtime, executor, Box::new(MockGit::new())).expect("should be set");
     let pushes = vec![];
     evm.push(pushes).expect("should succeed");
@@ -279,7 +282,7 @@ fn test_push() {
     let mut executor = Box::new(MockExecutor::new());
     executor
         .expect_push()
-        .returning(|_objects, _references| Ok(()));
+        .returning(|_objects, _references, _is_sha256| Ok(()));
     let hash_clone = hash.clone();
     executor
         .expect_resolve_references()
@@ -330,8 +333,9 @@ fn test_push() {
                 name: "refs/heads/main".to_string(),
                 hash: hash.clone(),
             }]),
+            eq(true),
         )
-        .returning(|_objects, _references| Ok(()));
+        .returning(|_objects, _references, _is_sha256| Ok(()));
 
     let mut git = Box::new(MockGit::new());
     let hash_clone = hash.clone();
@@ -344,6 +348,7 @@ fn test_push() {
     git.expect_get_object()
         .with(eq(object1.hash(true)))
         .returning(move |_| Ok(object1.clone()));
+    git.expect_is_sha256().returning(|| Ok(true));
 
     let evm = Evm::new(runtime, executor, git).expect("should be set");
     let pushes = vec![Push {
@@ -379,8 +384,9 @@ fn test_push() {
                 name: "refs/heads/main".to_string(),
                 hash: another_hash.clone(),
             }]),
+            eq(true),
         )
-        .returning(|_objects, _references| Ok(()));
+        .returning(|_objects, _references, _is_sha256| Ok(()));
 
     let mut git = Box::new(MockGit::new());
     let another_hash_clone = another_hash.clone();
@@ -393,6 +399,7 @@ fn test_push() {
     git.expect_get_object()
         .with(eq(object0.hash(true)))
         .returning(move |_object_hash| Ok(object0.clone()));
+    git.expect_is_sha256().returning(|| Ok(true));
 
     let evm = Evm::new(runtime, executor, git).expect("should be set");
     let pushes = vec![Push {
@@ -630,16 +637,18 @@ fn test_push() {
             Hash::from_data_sha256(b"abcdef").expect("should be set"),
         ])
     });
-    executor.expect_push().returning(|_objects, _references| {
-        Err(RemoteHelperError::Failure {
-            action: "".to_string(),
-            details: None,
-        })
-    });
+    executor
+        .expect_push()
+        .returning(|_objects, _references, _is_sha256| {
+            Err(RemoteHelperError::Failure {
+                action: "".to_string(),
+                details: None,
+            })
+        });
 
     let mut git = Box::new(MockGit::new());
     git.expect_resolve_reference()
-        .returning(|_name| Ok(Hash::from_data_sha256(b"abcdef").expect("should be set")));
+        .returning(|_name| Ok(Hash::from_data_sha256(b"ebebeb").expect("should be set")));
     let hash = Hash::from_data_sha256(b"1234567890").expect("should be set");
     let hash_clone = hash.clone();
     git.expect_list_missing_objects()

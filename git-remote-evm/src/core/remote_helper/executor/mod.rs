@@ -22,6 +22,7 @@ pub trait Executor {
         &self,
         objects: Vec<Object>,
         refs: Vec<Reference>,
+        is_sha256: bool,
     ) -> Result<(), RemoteHelperError>;
     async fn fetch(&self, hash: Hash) -> Result<Object, RemoteHelperError>;
     async fn resolve_references(&self, names: Vec<String>) -> Result<Vec<Hash>, RemoteHelperError>;

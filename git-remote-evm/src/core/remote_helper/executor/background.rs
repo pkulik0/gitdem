@@ -142,6 +142,7 @@ impl Executor for Background {
         &self,
         objects: Vec<Object>,
         refs: Vec<Reference>,
+        is_sha256: bool,
     ) -> Result<(), RemoteHelperError> {
         let mut data: PushData = PushData {
             objects: vec![],
@@ -150,9 +151,9 @@ impl Executor for Background {
 
         for object in objects {
             data.objects.push(ContractObject {
-                hash: FixedBytes::from_str(object.hash(true).to_string().as_str()).map_err(
+                hash: FixedBytes::from_str(object.hash(is_sha256).padded().as_str()).map_err(
                     |e| RemoteHelperError::Failure {
-                        action: "pushing objects and refs".to_string(),
+                        action: "converting hash to fixed bytes".to_string(),
                         details: Some(e.to_string()),
                     },
                 )?,
@@ -165,7 +166,7 @@ impl Executor for Background {
                 Reference::Normal { name, hash } => {
                     data.refs.push(RefNormal {
                         name: name.clone(),
-                        hash: FixedBytes::from_str(hash.to_string().as_str()).map_err(|e| {
+                        hash: FixedBytes::from_str(hash.padded().as_str()).map_err(|e| {
                             RemoteHelperError::Failure {
                                 action: "converting hash to fixed bytes".to_string(),
                                 details: Some(e.to_string()),
@@ -204,7 +205,7 @@ impl Executor for Background {
     }
 
     async fn fetch(&self, hash: Hash) -> Result<Object, RemoteHelperError> {
-        let hash_bytes = FixedBytes::from_str(hash.to_string().as_str()).map_err(|e| {
+        let hash_bytes = FixedBytes::from_str(hash.padded().as_str()).map_err(|e| {
             RemoteHelperError::Failure {
                 action: "converting hash to fixed bytes".to_string(),
                 details: Some(e.to_string()),
@@ -314,7 +315,7 @@ async fn test_push() {
         name: "refs/heads/main".to_string(),
         hash: hash.clone(),
     }];
-    executor.push(objects, refs).await.expect("failed to push");
+    executor.push(objects, refs, true).await.expect("failed to push");
 
     let refs = executor.list().await.expect("failed to list references");
     let expected = vec![
@@ -348,7 +349,7 @@ async fn test_fetch() {
         name: "refs/heads/main".to_string(),
         hash: hash.clone(),
     }];
-    executor.push(objects, refs).await.expect("failed to push");
+    executor.push(objects, refs, true).await.expect("failed to push");
 
     let fetched_object = executor
         .fetch(hash.clone())
@@ -372,7 +373,7 @@ async fn test_get_references() {
         name: ref_name.clone(),
         hash: hash.clone(),
     }];
-    executor.push(objects, refs).await.expect("failed to push");
+    executor.push(objects, refs, true).await.expect("failed to push");
 
     let refs = executor
         .resolve_references(vec![ref_name.clone()])
@@ -402,7 +403,7 @@ async fn test_list_objects() {
         name: "refs/heads/main".to_string(),
         hash: hash.clone(),
     }];
-    executor.push(objects, refs).await.expect("failed to push");
+    executor.push(objects, refs, true).await.expect("failed to push");
 
     let hashes = executor
         .list_objects()

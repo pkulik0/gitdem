@@ -26,6 +26,14 @@ impl Hash {
         }
     }
 
+    pub fn padded(&self) -> String {
+        // pad with trailing zeros to make it 64 characters long
+        match self {
+            Self::Sha1(s) => s.clone() + &"0".repeat(64 - s.len()),
+            Self::Sha256(s) => s.clone(),
+        }
+    }
+
     pub fn from_data_sha256(data: &[u8]) -> Result<Self, RemoteHelperError> {
         use sha2::{Digest, Sha256};
 
