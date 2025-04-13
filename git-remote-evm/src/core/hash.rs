@@ -16,6 +16,14 @@ pub enum Hash {
 }
 
 impl Hash {
+    pub fn empty(is_sha256: bool) -> Self {
+        if is_sha256 {
+            Self::Sha256("".to_string())
+        } else {
+            Self::Sha1("".to_string())
+        }
+    }
+
     pub fn from_data_sha256(data: &[u8]) -> Result<Self, RemoteHelperError> {
         use sha2::{Digest, Sha256};
 
@@ -31,11 +39,10 @@ impl Hash {
     }
 
     pub fn is_empty(&self) -> bool {
-        let s = match self {
-            Self::Sha1(s) => s,
-            Self::Sha256(s) => s,
-        };
-        s.is_empty()
+        match self {
+            Self::Sha1(_) => self == &Hash::empty(false),
+            Self::Sha256(_) => self == &Hash::empty(true),
+        }
     }
 }
 
