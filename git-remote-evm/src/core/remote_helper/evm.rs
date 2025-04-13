@@ -41,8 +41,14 @@ impl RemoteHelper for Evm {
     }
 
     fn fetch(&self, fetches: Vec<Fetch>) -> Result<(), RemoteHelperError> {
-        for fetch in fetches {
-            let object = self.runtime.block_on(self.executor.fetch(fetch.hash))?;
+        let mut to_fetch: Vec<Hash> = fetches.into_iter().map(|f| f.hash).collect();
+        let mut processed = HashSet::new();
+        while let Some(hash) = to_fetch.pop() {
+            if !processed.insert(hash.clone()) {
+                continue;
+            }
+            let object = self.runtime.block_on(self.executor.fetch(hash))?;
+            to_fetch.extend(object.get_related_objects().iter().cloned());
             self.git.save_object(object)?;
         }
         Ok(())
@@ -195,7 +201,7 @@ fn test_fetch() {
     use crate::core::object::{Object, ObjectKind};
     use tokio::runtime::Builder;
 
-    // Case 1: Fetch succeeds
+    // Case 1: Fetch succeeds (one object)
     let runtime = Builder::new_current_thread()
         .enable_all()
         .build()
@@ -218,7 +224,47 @@ fn test_fetch() {
     }])
     .expect("should succeed");
 
-    // Case 2: Fetch fails because the object is missing
+    // Case 2: Fetch succeeds (more objects)
+    let object_blob =
+        Object::new(ObjectKind::Blob, b"1234567890".to_vec()).expect("failed to create object");
+    let tree_data = format!("100644 blob {}\tfile", object_blob.hash(true));
+    let object_tree = Object::new(ObjectKind::Tree, tree_data.as_bytes().to_vec())
+        .expect("failed to create object");
+
+    let runtime = Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build runtime");
+    let mut executor = Box::new(MockExecutor::new());
+    let object_blob_clone = object_blob.clone();
+    let object_tree_clone = object_tree.clone();
+    executor
+        .expect_fetch()
+        .with(eq(object_blob_clone.hash(true)))
+        .returning(move |_| Ok(object_blob_clone.clone()));
+    executor
+        .expect_fetch()
+        .with(eq(object_tree_clone.hash(true)))
+        .returning(move |_| Ok(object_tree_clone.clone()));
+
+    let mut git = Box::new(MockGit::new());
+    let object_tree_clone = object_tree.clone();
+    git.expect_save_object()
+        .with(eq(object_tree_clone.clone()))
+        .returning(|_| Ok(()));
+    let object_blob_clone = object_blob.clone();
+    git.expect_save_object()
+        .with(eq(object_blob_clone.clone()))
+        .returning(|_| Ok(()));
+
+    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    evm.fetch(vec![Fetch {
+        hash: object_tree.hash(true),
+        name: "refs/heads/main".to_string(),
+    }])
+    .expect("should succeed");
+
+    // Case 3: Fetch fails because the object is missing
     let runtime = Builder::new_current_thread()
         .enable_all()
         .build()
@@ -237,7 +283,7 @@ fn test_fetch() {
     }])
     .expect_err("should fail");
 
-    // Case 3: Fetch fails because the it wasn't saved to .git
+    // Case 4: Fetch fails because saving failed
     let runtime = Builder::new_current_thread()
         .enable_all()
         .build()
