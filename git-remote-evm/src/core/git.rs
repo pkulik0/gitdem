@@ -291,7 +291,7 @@ impl Git for SystemGit {
         local: Hash,
         remote: Hash,
     ) -> Result<Vec<Hash>, RemoteHelperError> {
-        let range = format!("{}..{}", local, remote);
+        let range = format!("{}..{}", remote, local);
         trace!(
             "listing missing objects: {} in {}",
             range,
@@ -507,7 +507,7 @@ fn test_list_missing_objects() {
 
     let git = SystemGit::new(repo_dir.path().to_path_buf());
     let missing = git
-        .list_missing_objects(hash_before, hash_after.clone())
+        .list_missing_objects(hash_after.clone(), hash_before)
         .expect("failed to get missing objects");
 
     assert_eq!(missing.len(), 3); // blob, tree, commit
