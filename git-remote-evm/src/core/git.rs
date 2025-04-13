@@ -8,8 +8,22 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::str::FromStr;
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct GitVersion {
+    pub major: u32,
+    pub minor: u32,
+    pub patch: u32,
+}
+
+impl std::fmt::Display for GitVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
+    }
+}
+
 #[automock]
 pub trait Git {
+    fn version(&self) -> Result<GitVersion, RemoteHelperError>;
     fn resolve_reference(&self, name: &str) -> Result<Hash, RemoteHelperError>;
     fn get_object(&self, hash: Hash) -> Result<Object, RemoteHelperError>;
     fn save_object(&self, object: Object) -> Result<(), RemoteHelperError>;
@@ -77,6 +91,59 @@ impl SystemGit {
 }
 
 impl Git for SystemGit {
+    fn version(&self) -> Result<GitVersion, RemoteHelperError> {
+        let output = Command::new("git")
+            .current_dir(self.path.as_path())
+            .env_remove("GIT_DIR")
+            .args(&["--version"])
+            .output()
+            .map_err(|e| RemoteHelperError::Failure {
+                action: "getting git version".to_string(),
+                details: Some(e.to_string()),
+            })?;
+        let stdout = String::from_utf8(output.stdout).map_err(|e| RemoteHelperError::Failure {
+            action: "reading stdout of git --version".to_string(),
+            details: Some(e.to_string()),
+        })?;
+        let version = stdout.trim().strip_prefix("git version ").ok_or(RemoteHelperError::Failure {
+            action: "parsing git version".to_string(),
+            details: Some(stdout.to_string()),
+        })?;
+
+        let parts: Vec<&str> = version.split('.').collect();
+        if parts.len() != 3 {
+            return Err(RemoteHelperError::Failure {
+                action: "parsing git version".to_string(),
+                details: Some(version.to_string()),
+            });
+        }
+
+        let major = parts[0]
+            .parse::<u32>()
+            .map_err(|e| RemoteHelperError::Failure {
+                action: "parsing git major version".to_string(),
+                details: Some(e.to_string()),
+            })?;
+        let minor = parts[1]
+            .parse::<u32>()
+            .map_err(|e| RemoteHelperError::Failure {
+                action: "parsing git minor version".to_string(),
+                details: Some(e.to_string()),
+            })?;
+        let patch = parts[2]
+            .parse::<u32>()
+            .map_err(|e| RemoteHelperError::Failure {
+                action: "parsing git patch version".to_string(),
+                details: Some(e.to_string()),
+            })?;
+
+        Ok(GitVersion {
+            major,
+            minor,
+            patch,
+        })
+    }
+
     fn get_address(
         &self,
         protocol: &str,
@@ -553,4 +620,12 @@ fn test_get_address() {
         hex::encode(address).to_lowercase(),
         "c6093fd9cc143f9f058938868b2df2daf9a91d28"
     );
+}
+
+#[test]
+fn test_get_version() {
+    let repo_dir = setup_git_repo();
+    let git = SystemGit::new(repo_dir.path().to_path_buf());
+    let version = git.version().expect("failed to get version");
+    assert!(version.major >= 1);
 }

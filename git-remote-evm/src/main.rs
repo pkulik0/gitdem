@@ -11,7 +11,7 @@ use cli::CLI;
 use core::git::Git;
 use core::remote_helper::{error::RemoteHelperError, evm::Evm};
 use flexi_logger::{FileSpec, Logger, WriteMode};
-use log::{debug, error};
+use log::{debug, error, warn};
 use std::error::Error;
 use std::io;
 use std::path::PathBuf;
@@ -46,6 +46,12 @@ fn construct_remote_helper(args: Args) -> Result<Evm, RemoteHelperError> {
     debug!("using evm remote helper");
     let kv_source = Box::new(GitConfigSource::new(args.directory().clone()));
     let git = Box::new(SystemGit::new(args.directory().clone()));
+
+    let git_version = git.version()?;
+    debug!("git version: {}", git_version);
+    if git_version.major < 3 && git_version.minor < 42 {
+        warn!("sha256 has been fully supported since git 2.42.0, unexpected results may occur");
+    }
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
