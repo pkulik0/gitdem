@@ -29,6 +29,12 @@ jobs:
     - name: Install on-chain dependencies
       run: npm install
       working-directory: on-chain
+
+    - name: Switch to rust nightly
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          default: true
     - name: Build remote-helper
       run: cargo build --verbose
       working-directory: git-remote-evm
