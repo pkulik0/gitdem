@@ -1,12 +1,15 @@
+use crate::core::remote_helper::error::RemoteHelperError;
+use log::{debug, trace};
 use mockall::automock;
 use std::path::PathBuf;
 use std::process::Command;
+
 #[cfg(test)]
 use tempfile::TempDir;
 
 #[automock]
 pub trait KeyValueSource {
-    fn read(&self, key: &str) -> Option<String>;
+    fn read(&self, key: &str) -> Result<Option<String>, RemoteHelperError>;
 }
 
 pub struct GitConfigSource {
@@ -20,22 +23,31 @@ impl GitConfigSource {
 }
 
 impl KeyValueSource for GitConfigSource {
-    fn read(&self, key: &str) -> Option<String> {
+    fn read(&self, key: &str) -> Result<Option<String>, RemoteHelperError> {
+        trace!("reading git config key: {}", key);
         let cmd = Command::new("git")
             .arg("config")
             .arg("--get")
             .arg(key)
             .current_dir(self.dir.as_path())
             .output()
-            .ok()?;
+            .map_err(|e| RemoteHelperError::Failure {
+                action: "running git config".to_string(),
+                details: Some(e.to_string()),
+            })?;
 
-        let value = String::from_utf8(cmd.stdout).ok()?;
+        let value = String::from_utf8(cmd.stdout).map_err(|e| RemoteHelperError::Failure {
+            action: "parsing git config output".to_string(),
+            details: Some(e.to_string()),
+        })?;
         let trimmed = value.trim();
 
-        match value.is_empty() {
+        let result = match value.is_empty() {
             true => None,
             false => Some(trimmed.to_string()),
-        }
+        };
+        debug!("git config {} = {:?}", key, result);
+        Ok(result)
     }
 }
 
@@ -78,7 +90,10 @@ fn test_git_config() {
             String::from_utf8_lossy(&cmd.stderr)
         );
     }
-    let read_value = config.read(key).expect("failed to read config");
+    let read_value = config
+        .read(key)
+        .expect("failed to read config")
+        .expect("doesn't have value");
     assert_eq!(read_value, value.to_string());
 
     let cmd = Command::new("git")
@@ -94,5 +109,6 @@ fn test_git_config() {
             String::from_utf8_lossy(&cmd.stderr)
         );
     }
-    assert!(config.read(key).is_none());
+    let read_value = config.read(key).expect("failed to read config");
+    assert!(read_value.is_none());
 }

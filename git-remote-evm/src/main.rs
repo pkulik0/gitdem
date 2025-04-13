@@ -102,10 +102,11 @@ fn main() {
     let mut stdout = io::stdout();
     let mut stderr = io::stderr();
 
-    let git_dir = match std::env::var(GIT_DIR_ENV_VAR) {
-        Ok(dir) => PathBuf::from(dir),
-        Err(_) => PathBuf::from("."),
-    };
+    let git_dir_var = std::env::var(GIT_DIR_ENV_VAR).unwrap_or_else(|e| {
+        exit_with_error("failed to get git dir", e.into());
+    });
+    let git_dir = PathBuf::from(git_dir_var);
+
     let cmd_args = std::env::args().collect::<Vec<String>>();
     let args = Args::parse(&cmd_args, git_dir)
         .unwrap_or_else(|e| exit_with_error("failed to collect args", e.into()));

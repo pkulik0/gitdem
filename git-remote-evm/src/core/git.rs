@@ -1,6 +1,7 @@
 use super::remote_helper::error::RemoteHelperError;
 use crate::core::hash::Hash;
 use crate::core::object::{Object, ObjectKind};
+use log::{debug, trace};
 use mockall::automock;
 use std::io::Write;
 use std::path::PathBuf;
@@ -28,6 +29,7 @@ pub struct SystemGit {
 
 impl SystemGit {
     pub fn new(path: PathBuf) -> Self {
+        debug!("git commands will run in: {}", path.to_string_lossy());
         Self { path }
     }
 }
@@ -36,6 +38,7 @@ impl SystemGit {
     fn rev_parse(&self, name: &str) -> Result<Vec<Hash>, RemoteHelperError> {
         let output = Command::new("git")
             .current_dir(self.path.as_path())
+            .env_remove("GIT_DIR")
             .args(&["rev-list", "--objects", name])
             .output()
             .map_err(|e| RemoteHelperError::Failure {
@@ -79,8 +82,14 @@ impl Git for SystemGit {
         protocol: &str,
         remote_name: &str,
     ) -> Result<[u8; 20], RemoteHelperError> {
+        trace!(
+            "getting address: {} in {}",
+            remote_name,
+            self.path.to_string_lossy()
+        );
         let output = Command::new("git")
             .current_dir(self.path.as_path())
+            .env_remove("GIT_DIR")
             .args(&["remote", "get-url", remote_name])
             .output()
             .map_err(|e| RemoteHelperError::Failure {
@@ -102,13 +111,13 @@ impl Git for SystemGit {
         let remote_url = remote_url.trim();
 
         let prefix = format!("{}://0x", protocol);
-        let address = remote_url
+        let address_str = remote_url
             .strip_prefix(&prefix)
             .ok_or(RemoteHelperError::Failure {
                 action: "getting address".to_string(),
                 details: Some(format!("address not found in {}", remote_url)),
             })?;
-        let address = hex::decode(address).map_err(|e| RemoteHelperError::Failure {
+        let address = hex::decode(address_str).map_err(|e| RemoteHelperError::Failure {
             action: "decoding address".to_string(),
             details: Some(e.to_string()),
         })?;
@@ -116,12 +125,19 @@ impl Git for SystemGit {
             action: "getting address".to_string(),
             details: None,
         })?;
+        debug!("got address: {}", address_str);
         Ok(*address)
     }
 
     fn resolve_reference(&self, name: &str) -> Result<Hash, RemoteHelperError> {
+        trace!(
+            "resolving reference: {} in {}",
+            name,
+            self.path.to_string_lossy()
+        );
         let output = Command::new("git")
             .current_dir(self.path.as_path())
+            .env_remove("GIT_DIR")
             .args(&["rev-parse", name])
             .output()
             .map_err(|e| RemoteHelperError::Failure {
@@ -142,12 +158,19 @@ impl Git for SystemGit {
             action: "parsing hash".to_string(),
             details: Some(e.to_string()),
         })?;
+        debug!("resolved reference {}: {}", name, hash);
         Ok(hash)
     }
 
     fn get_object(&self, hash: Hash) -> Result<Object, RemoteHelperError> {
+        trace!(
+            "getting object: {} in {}",
+            hash,
+            self.path.to_string_lossy()
+        );
         let output = Command::new("git")
             .current_dir(self.path.as_path())
+            .env_remove("GIT_DIR")
             .args(&["cat-file", "-t", &hash.to_string()])
             .output()
             .map_err(|e| RemoteHelperError::Failure {
@@ -171,21 +194,30 @@ impl Git for SystemGit {
 
         let output = Command::new("git")
             .current_dir(self.path.as_path())
+            .env_remove("GIT_DIR")
             .args(&["cat-file", "-p", &hash.to_string()])
             .output()
             .map_err(|e| RemoteHelperError::Failure {
                 action: "getting object type".to_string(),
                 details: Some(e.to_string()),
             })?;
-        Ok(Object {
+        let object = Object {
             kind,
             data: output.stdout,
-        })
+        };
+        debug!("got object {}: {}", hash, object.kind);
+        Ok(object)
     }
 
     fn save_object(&self, object: Object) -> Result<(), RemoteHelperError> {
+        trace!(
+            "saving object: {} in {}",
+            object.kind,
+            self.path.to_string_lossy()
+        );
         let mut cmd = Command::new("git")
             .current_dir(self.path.as_path())
+            .env_remove("GIT_DIR")
             .args(&[
                 "hash-object",
                 "-t",
@@ -249,6 +281,7 @@ impl Git for SystemGit {
                 details: Some(format!("object hash mismatch: {} != {}", hash, object_hash)),
             });
         }
+        debug!("saved object: {}", hash);
 
         Ok(())
     }
@@ -259,11 +292,25 @@ impl Git for SystemGit {
         remote: Hash,
     ) -> Result<Vec<Hash>, RemoteHelperError> {
         let range = format!("{}..{}", local, remote);
-        self.rev_parse(&range)
+        trace!(
+            "listing missing objects: {} in {}",
+            range,
+            self.path.to_string_lossy()
+        );
+        let hashes = self.rev_parse(&range)?;
+        debug!("got missing objects: {:?}", hashes);
+        Ok(hashes)
     }
 
     fn list_objects(&self, hash: Hash) -> Result<Vec<Hash>, RemoteHelperError> {
-        self.rev_parse(&hash.to_string())
+        trace!(
+            "listing objects: {} in {}",
+            hash,
+            self.path.to_string_lossy()
+        );
+        let hashes = self.rev_parse(&hash.to_string())?;
+        debug!("got objects: {:?}", hashes);
+        Ok(hashes)
     }
 }
 
@@ -495,7 +542,10 @@ fn test_get_address() {
         "0000000000000000000000000000000000000000"
     );
 
-    add_remote("upstream", "arb1://0xc6093fd9cc143f9f058938868b2df2daf9a91d28");
+    add_remote(
+        "upstream",
+        "arb1://0xc6093fd9cc143f9f058938868b2df2daf9a91d28",
+    );
     let address = git
         .get_address("arb1", "upstream")
         .expect("failed to get address");

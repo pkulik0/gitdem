@@ -64,21 +64,26 @@ impl<'a> CLI<'a> {
     fn do_push(&mut self, refs: Vec<Push>) -> Result<(), CLIError> {
         info!("push: {:?}", refs);
 
-        let result = match self.remote_helper.push(refs.clone()) {
-            Ok(_) => {
-                format!("ok")
-            }
-            Err(e) => {
-                format!("error {}", e)
-            }
-        };
+        let result = self.remote_helper.push(refs.clone());
         for reference in refs {
-            writeln!(self.stdout, "{} {}", result, reference.remote)?;
+            match &result {
+                Ok(_) => {
+                    writeln!(self.stdout, "ok {}", reference.remote)?;
+                }
+                Err(e) => {
+                    writeln!(self.stdout, "error {} {:?}", reference.remote, e.to_string())?;
+                }
+            }
         }
-
-        debug!("push result: {:?}", result);
         writeln!(self.stdout)?;
-        Ok(())
+
+        return match result {
+            Ok(_) => {
+                info!("push complete");
+                Ok(())
+            },
+            Err(e) => Err(e.into()),
+        }
     }
 
     fn handle_line(&mut self, line: String) -> Result<(), CLIError> {

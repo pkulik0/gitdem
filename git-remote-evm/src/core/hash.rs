@@ -18,9 +18,11 @@ pub enum Hash {
 impl Hash {
     pub fn empty(is_sha256: bool) -> Self {
         if is_sha256 {
-            Self::Sha256("".to_string())
+            Self::Sha256(
+                "0000000000000000000000000000000000000000000000000000000000000000".to_string(),
+            )
         } else {
-            Self::Sha1("".to_string())
+            Self::Sha1("0000000000000000000000000000000000000000".to_string())
         }
     }
 
