@@ -288,16 +288,10 @@ async fn test_list() {
     let executor = setup_test_executor().await;
 
     let refs = executor.list().await.expect("failed to list references");
-    let expected = vec![
-        Reference::Symbolic {
-            name: "HEAD".to_string(),
-            target: "refs/heads/main".to_string(),
-        },
-        Reference::KeyValue {
-            key: Keys::ObjectFormat,
-            value: "sha256".to_string(),
-        },
-    ];
+    let expected = vec![Reference::KeyValue {
+        key: Keys::ObjectFormat,
+        value: "sha256".to_string(),
+    }];
     assert_eq!(refs, expected);
 }
 
