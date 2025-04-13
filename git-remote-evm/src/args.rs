@@ -33,7 +33,7 @@ pub struct Args {
     protocol: String,
     directory: PathBuf,
     remote_name: Option<String>,
-    address: Option<String>,
+    address: Option<[u8; 20]>,
 }
 
 impl Args {
@@ -45,8 +45,8 @@ impl Args {
         self.remote_name.as_deref()
     }
 
-    pub fn address(&self) -> Option<&str> {
-        self.address.as_deref()
+    pub fn address(&self) -> Option<&[u8; 20]> {
+        self.address.as_ref()
     }
 
     pub fn directory(&self) -> &PathBuf {
@@ -62,11 +62,23 @@ impl Args {
                     protocol: protocol.to_string(),
                     directory: git_dir,
                     remote_name: Some(remote_name),
-                    address: None,
+                    address: None, // Needs to be read from the saved remote
                 });
             }
             3 => {
-                let address = address_from_arg(&args[2], &protocol)?;
+                let address_str = address_from_arg(&args[2], &protocol)?;
+                let address_str = address_str.strip_prefix("0x").ok_or(ArgsError {
+                    what: "address".to_string(),
+                    value: address_str.to_string(),
+                })?;
+                let address = hex::decode(address_str).map_err(|e| ArgsError {
+                    what: "address".to_string(),
+                    value: e.to_string(),
+                })?;
+                let address: [u8; 20] = *address.as_array().ok_or(ArgsError {
+                    what: "address".to_string(),
+                    value: "invalid address".to_string(),
+                })?;
 
                 let remote_name = if args[1] == args[2] {
                     None
@@ -85,7 +97,7 @@ impl Args {
                     protocol: protocol.to_string(),
                     directory: git_dir,
                     remote_name,
-                    address: Some(address.to_string()),
+                    address: Some(address),
                 })
             }
             _ => {
@@ -292,7 +304,7 @@ fn test_parse() {
     let executable = "git-remote-eth";
     let remote_name = "test-remote";
     let cmd_args = vec![executable.to_string(), remote_name.to_string()];
-    let args = Args::parse(&cmd_args, git_dir.clone()).unwrap();
+    let args = Args::parse(&cmd_args, git_dir.clone()).expect("failed to parse args");
     assert_eq!(
         args.directory().display().to_string(),
         git_dir.display().to_string()
@@ -304,20 +316,23 @@ fn test_parse() {
     let remote_name = "test-remote";
     let address = "eth://0xc0ffee254729296a45a3885639AC7E10F9d54979";
     let address_no_prefix = address
-        .strip_prefix("eth://")
+        .strip_prefix("eth://0x")
         .expect("failed to strip prefix from address");
     let cmd_args = vec![
         executable.to_string(),
         remote_name.to_string(),
         address.to_string(),
     ];
-    let args = Args::parse(&cmd_args, git_dir.clone()).unwrap();
+    let args = Args::parse(&cmd_args, git_dir.clone()).expect("failed to parse args");
     assert_eq!(
         args.directory().display().to_string(),
         git_dir.display().to_string()
     );
     assert_eq!(args.remote_name(), Some(remote_name));
-    assert_eq!(args.address(), Some(address_no_prefix));
+    assert_eq!(
+        hex::encode(args.address().expect("failed to get address")).to_lowercase(),
+        address_no_prefix.to_lowercase()
+    );
 
     // Case 3: argc == 3, argv[1] == argv[2]
     let cmd_args = vec![
@@ -325,13 +340,16 @@ fn test_parse() {
         address.to_string(),
         address.to_string(),
     ];
-    let args = Args::parse(&cmd_args, git_dir.clone()).unwrap();
+    let args = Args::parse(&cmd_args, git_dir.clone()).expect("failed to parse args");
     assert_eq!(
         args.directory().display().to_string(),
         git_dir.display().to_string()
     );
     assert_eq!(args.remote_name(), None);
-    assert_eq!(args.address(), Some(address_no_prefix));
+    assert_eq!(
+        hex::encode(args.address().expect("failed to get address")).to_lowercase(),
+        address_no_prefix.to_lowercase()
+    );
 
     // Case 4: argc < 2
     let cmd_args = vec![executable.to_string()];

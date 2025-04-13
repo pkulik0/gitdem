@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 use std::sync::LazyLock;
 
-use mockall::predicate::eq;
-use regex::Regex;
-
-use crate::core::kv_source::{KeyValueSource, MockKeyValueSource};
+use crate::core::kv_source::KeyValueSource;
+#[cfg(test)]
+use crate::core::kv_source::MockKeyValueSource;
 use crate::core::remote_helper::error::RemoteHelperError;
 #[cfg(test)]
-use std::collections::HashMap;
+use mockall::predicate::eq;
+use regex::Regex;
 
 const CONFIG_PREFIX: &str = "evm";
 const RPC_REGEX: LazyLock<Regex> =

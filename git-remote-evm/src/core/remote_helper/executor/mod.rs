@@ -31,10 +31,11 @@ pub trait Executor {
 pub async fn create_executor(
     rpc: &str,
     wallet: Wallet,
+    address: [u8; 20],
 ) -> Result<Box<dyn Executor>, RemoteHelperError> {
     match wallet {
         // true => Ok(Box::new(Browser::new(Box::new(BrowserLinkOpener))?)),
         Wallet::Browser => todo!(),
-        _ => Ok(Box::new(Background::new(wallet, rpc, [0; 20]).await?)),
+        _ => Ok(Box::new(Background::new(wallet, rpc, address).await?)),
     }
 }

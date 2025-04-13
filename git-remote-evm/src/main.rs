@@ -1,3 +1,5 @@
+#![feature(slice_as_array)]
+
 mod args;
 mod cli;
 mod core;
@@ -54,7 +56,14 @@ fn construct_remote_helper(args: Args) -> Result<Evm, RemoteHelperError> {
 
     let protocol = args.protocol().to_string();
     let config = Config::new(protocol, config);
-    let executor = runtime.block_on(create_executor(&config.get_rpc()?, config.get_wallet()?))?;
+    let executor = runtime.block_on(create_executor(
+        &config.get_rpc()?,
+        config.get_wallet()?,
+        *args.address().ok_or(RemoteHelperError::Failure {
+            action: "getting address".to_string(),
+            details: None,
+        })?,
+    ))?;
 
     Evm::new(runtime, executor, git)
 }
