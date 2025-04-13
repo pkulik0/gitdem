@@ -4,7 +4,7 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
 const GitRepositoryModule = buildModule("GitRepositoryModule", (m) => {
-  const isSHA256 = m.getParameter("isSHA256", true);
+  const isSHA256 = m.getParameter("isSHA256", false);
 
   const gitRepository = m.contract("GitRepository", [isSHA256]);
 

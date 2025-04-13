@@ -117,8 +117,14 @@ contract GitRepository is Ownable2Step {
             });
         }
 
-        RefSymbolic[] memory symbolic = new RefSymbolic[](1);
-        symbolic[0] = RefSymbolic({name: "HEAD", target: defaultBranchRef});
+        RefSymbolic[] memory symbolic;
+        if (_references[keccak256(bytes(defaultBranchRef))] == bytes32(0)) {
+            // the default branch doesn't exist, don't send HEAD
+            symbolic = new RefSymbolic[](0);
+        } else {
+            symbolic = new RefSymbolic[](1);
+            symbolic[0] = RefSymbolic({name: "HEAD", target: defaultBranchRef});
+        }
 
         RefKV[] memory kv = new RefKV[](1);
         kv[0] = RefKV({

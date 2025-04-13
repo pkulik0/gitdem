@@ -148,14 +148,54 @@ describe("GitRepository", function () {
     });
 
     describe("Listing", function () {
-      it("has HEAD symbolic ref", async function () {
-        const { gitRepository } = await loadFixture(existingObjectFixture);
+      describe("HEAD", function () {
+        it("is not included if there are no refs", async function () {
+          const { gitRepository } = await loadFixture(existingObjectFixture);
 
-        const refs = await gitRepository.listRefs();
+          const refs = await gitRepository.listRefs();
+          expect(refs.symbolic.length).to.equal(0);
+          expect(refs.normal.length).to.equal(0);
+          expect(refs.kv.length).to.equal(1); // object-format
+        });
 
-        expect(refs.symbolic.length).to.equal(1);
-        expect(refs.symbolic[0].name).to.equal("HEAD");
-        expect(refs.symbolic[0].target).to.equal("refs/heads/main");
+        it("is included if the default branch exists", async function () {
+          const { gitRepository } = await loadFixture(existingObjectFixture);
+
+          const data = crypto.randomBytes(100);
+          const hash = generateHash(true, data);
+          await gitRepository.pushObjectsAndRefs({
+            objects: [{ hash, data }],
+            refs: [{
+              name: "refs/heads/main",
+              hash: hash,
+            }],
+          })
+
+          const refs = await gitRepository.listRefs();
+          expect(refs.symbolic.length).to.equal(1);
+          expect(refs.symbolic[0].name).to.equal("HEAD");
+          expect(refs.symbolic[0].target).to.equal("refs/heads/main");
+        });
+
+        it("is not included if the default branch doesn't exist", async function () {
+          const { gitRepository } = await loadFixture(existingObjectFixture);
+
+          const data = crypto.randomBytes(100);
+          const hash = generateHash(true, data);
+
+          await gitRepository.pushObjectsAndRefs({
+            objects: [{ hash, data }],
+            refs: [{
+              name: "refs/heads/other",
+              hash: hash,
+            }],
+          })
+
+          const newRefs = await gitRepository.listRefs();
+          expect(newRefs.symbolic.length).to.equal(0);
+          expect(newRefs.normal.length).to.equal(1); // refs/heads/other
+          expect(newRefs.kv.length).to.equal(1); // object-format
+        });
       });
 
       it("has object-format kv ref", async function () {
