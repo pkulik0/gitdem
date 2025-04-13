@@ -8,6 +8,7 @@ mod e2e_tests;
 
 use args::Args;
 use cli::CLI;
+use core::git::Git;
 use core::remote_helper::{error::RemoteHelperError, evm::Evm};
 use flexi_logger::{FileSpec, Logger, WriteMode};
 use log::{debug, error};
@@ -43,7 +44,7 @@ fn construct_remote_helper(args: Args) -> Result<Evm, RemoteHelperError> {
     use core::remote_helper::{config::Config, executor::create_executor};
 
     debug!("using evm remote helper");
-    let config = Box::new(GitConfigSource::new(args.directory().clone()));
+    let kv_source = Box::new(GitConfigSource::new(args.directory().clone()));
     let git = Box::new(SystemGit::new(args.directory().clone()));
 
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -53,16 +54,23 @@ fn construct_remote_helper(args: Args) -> Result<Evm, RemoteHelperError> {
             action: "creating runtime".to_string(),
             details: Some(e.to_string()),
         })?;
+    let config = Config::new(args.protocol().to_string(), kv_source);
 
-    let protocol = args.protocol().to_string();
-    let config = Config::new(protocol, config);
+    let address = if let Some(address) = args.address() {
+        *address
+    } else {
+        git.get_address(
+            args.protocol(),
+            args.remote_name().ok_or(RemoteHelperError::Missing {
+                what: "remote name".to_string(),
+            })?,
+        )?
+    };
+
     let executor = runtime.block_on(create_executor(
         &config.get_rpc()?,
         config.get_wallet()?,
-        *args.address().ok_or(RemoteHelperError::Failure {
-            action: "getting address".to_string(),
-            details: None,
-        })?,
+        address,
     ))?;
 
     Evm::new(runtime, executor, git)

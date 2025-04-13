@@ -18,6 +18,8 @@ pub trait Git {
         remote: Hash,
     ) -> Result<Vec<Hash>, RemoteHelperError>;
     fn list_objects(&self, hash: Hash) -> Result<Vec<Hash>, RemoteHelperError>;
+    fn get_address(&self, protocol: &str, remote_name: &str)
+    -> Result<[u8; 20], RemoteHelperError>;
 }
 
 pub struct SystemGit {
@@ -72,6 +74,51 @@ impl SystemGit {
 }
 
 impl Git for SystemGit {
+    fn get_address(
+        &self,
+        protocol: &str,
+        remote_name: &str,
+    ) -> Result<[u8; 20], RemoteHelperError> {
+        let output = Command::new("git")
+            .current_dir(self.path.as_path())
+            .args(&["remote", "get-url", remote_name])
+            .output()
+            .map_err(|e| RemoteHelperError::Failure {
+                action: "getting remote url".to_string(),
+                details: Some(e.to_string()),
+            })?;
+        if !output.status.success() {
+            return Err(RemoteHelperError::Failure {
+                action: "getting remote url".to_string(),
+                details: Some(String::from_utf8_lossy(&output.stderr).to_string()),
+            });
+        }
+
+        let remote_url =
+            String::from_utf8(output.stdout).map_err(|e| RemoteHelperError::Failure {
+                action: "reading stdout of git remote get-url".to_string(),
+                details: Some(e.to_string()),
+            })?;
+        let remote_url = remote_url.trim();
+
+        let prefix = format!("{}://0x", protocol);
+        let address = remote_url
+            .strip_prefix(&prefix)
+            .ok_or(RemoteHelperError::Failure {
+                action: "getting address".to_string(),
+                details: Some(format!("address not found in {}", remote_url)),
+            })?;
+        let address = hex::decode(address).map_err(|e| RemoteHelperError::Failure {
+            action: "decoding address".to_string(),
+            details: Some(e.to_string()),
+        })?;
+        let address: &[u8; 20] = address.as_array().ok_or(RemoteHelperError::Failure {
+            action: "getting address".to_string(),
+            details: None,
+        })?;
+        Ok(*address)
+    }
+
     fn resolve_reference(&self, name: &str) -> Result<Hash, RemoteHelperError> {
         let output = Command::new("git")
             .current_dir(self.path.as_path())
@@ -418,4 +465,42 @@ fn test_list_missing_objects() {
 
     assert_eq!(missing.len(), 3); // blob, tree, commit
     assert!(missing.contains(&hash_after));
+}
+
+#[test]
+fn test_get_address() {
+    let repo_dir = setup_git_repo();
+    let git = SystemGit::new(repo_dir.path().to_path_buf());
+
+    let add_remote = |remote_name: &str, url: &str| {
+        let cmd = Command::new("git")
+            .current_dir(repo_dir.path())
+            .args(&["remote", "add", remote_name, url])
+            .output()
+            .expect("failed to run git remote add");
+        if !cmd.status.success() {
+            panic!(
+                "git remote add failed: {}",
+                String::from_utf8_lossy(&cmd.stderr)
+            );
+        }
+    };
+
+    add_remote("origin", "eth://0x0000000000000000000000000000000000000000");
+    let address = git
+        .get_address("eth", "origin")
+        .expect("failed to get address");
+    assert_eq!(
+        hex::encode(address),
+        "0000000000000000000000000000000000000000"
+    );
+
+    add_remote("upstream", "arb1://0xc6093fd9cc143f9f058938868b2df2daf9a91d28");
+    let address = git
+        .get_address("arb1", "upstream")
+        .expect("failed to get address");
+    assert_eq!(
+        hex::encode(address).to_lowercase(),
+        "c6093fd9cc143f9f058938868b2df2daf9a91d28"
+    );
 }

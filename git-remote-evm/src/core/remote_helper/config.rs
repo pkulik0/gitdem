@@ -37,7 +37,7 @@ fn get_default_rpc(protocol: &str) -> Option<&str> {
 
 pub struct Config {
     protocol: String,
-    config: Box<dyn KeyValueSource>,
+    kv_source: Box<dyn KeyValueSource>,
 }
 
 impl Config {
@@ -45,12 +45,12 @@ impl Config {
         format!("{}.{}.{}", CONFIG_PREFIX, self.protocol, key)
     }
 
-    pub fn new(protocol: String, config: Box<dyn KeyValueSource>) -> Self {
-        Self { protocol, config }
+    pub fn new(protocol: String, kv_source: Box<dyn KeyValueSource>) -> Self {
+        Self { protocol, kv_source }
     }
 
     pub fn get_rpc(&self) -> Result<String, RemoteHelperError> {
-        match self.config.read(self.to_key("rpc").as_str()) {
+        match self.kv_source.read(self.to_key("rpc").as_str()) {
             Some(rpc) => match RPC_REGEX.is_match(&rpc) {
                 true => Ok(rpc),
                 false => Err(RemoteHelperError::Invalid {
@@ -68,9 +68,9 @@ impl Config {
     }
 
     pub fn get_wallet(&self) -> Result<Wallet, RemoteHelperError> {
-        match self.config.read(self.to_key("wallet").as_str()) {
+        match self.kv_source.read(self.to_key("wallet").as_str()) {
             Some(wallet_type) => match wallet_type.as_str() {
-                "keypair" => match self.config.read(self.to_key("keypair").as_str()) {
+                "keypair" => match self.kv_source.read(self.to_key("keypair").as_str()) {
                     Some(keypair_path) => Ok(Wallet::Keypair(PathBuf::from(keypair_path))),
                     None => Err(RemoteHelperError::Missing {
                         what: "keypair path".to_string(),
