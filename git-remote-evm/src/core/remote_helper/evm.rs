@@ -2,7 +2,7 @@ use crate::core::git::Git;
 #[cfg(test)]
 use crate::core::git::MockGit;
 use crate::core::hash::Hash;
-use crate::core::reference::{Push, Reference};
+use crate::core::reference::{Fetch, Push, Reference};
 use crate::core::remote_helper::executor::Executor;
 #[cfg(test)]
 use crate::core::remote_helper::executor::MockExecutor;
@@ -40,9 +40,11 @@ impl RemoteHelper for Evm {
         self.runtime.block_on(self.executor.list())
     }
 
-    fn fetch(&self, hash: Hash) -> Result<(), RemoteHelperError> {
-        let object = self.runtime.block_on(self.executor.fetch(hash))?;
-        self.git.save_object(object)?;
+    fn fetch(&self, fetches: Vec<Fetch>) -> Result<(), RemoteHelperError> {
+        for fetch in fetches {
+            let object = self.runtime.block_on(self.executor.fetch(fetch.hash))?;
+            self.git.save_object(object)?;
+        }
         Ok(())
     }
 
@@ -123,7 +125,11 @@ impl RemoteHelper for Evm {
                 return Ok(());
             }
             self.executor
-                .push(objects.into_iter().collect(), references, self.git.is_sha256()?)
+                .push(
+                    objects.into_iter().collect(),
+                    references,
+                    self.git.is_sha256()?,
+                )
                 .await
         })
     }
@@ -208,7 +214,11 @@ fn test_fetch() {
         .with(eq(object.clone()))
         .returning(|_| Ok(()));
     let evm = Evm::new(runtime, executor, git).expect("should be set");
-    evm.fetch(object.hash(true)).expect("should succeed");
+    evm.fetch(vec![Fetch {
+        hash: object.hash(true),
+        name: "refs/heads/main".to_string(),
+    }])
+    .expect("should succeed");
 
     // Case 2: Fetch fails because the object is missing
     let runtime = Builder::new_current_thread()
@@ -223,7 +233,11 @@ fn test_fetch() {
     });
     let evm = Evm::new(runtime, executor, Box::new(MockGit::new())).expect("should be set");
     let hash = Hash::from_data_sha256(b"1234567890").expect("should be set");
-    evm.fetch(hash).expect_err("should fail");
+    evm.fetch(vec![Fetch {
+        hash,
+        name: "refs/heads/main".to_string(),
+    }])
+    .expect_err("should fail");
 
     // Case 3: Fetch fails because the it wasn't saved to .git
     let runtime = Builder::new_current_thread()
@@ -249,7 +263,11 @@ fn test_fetch() {
             })
         });
     let evm = Evm::new(runtime, executor, git).expect("should be set");
-    evm.fetch(object.hash(true)).expect_err("should fail");
+    evm.fetch(vec![Fetch {
+        hash: object.hash(true),
+        name: "refs/heads/main".to_string(),
+    }])
+    .expect_err("should fail");
 }
 
 #[test]

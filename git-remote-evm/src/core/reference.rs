@@ -75,3 +75,27 @@ impl Push {
         }
     }
 }
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Fetch {
+    pub hash: Hash,
+    pub name: String,
+}
+
+impl fmt::Display for Fetch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}", self.hash, self.name)
+    }
+}
+
+impl FromStr for Fetch {
+    type Err = RemoteHelperError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let parts: Vec<&str> = s.split_whitespace().collect();
+        let hash = Hash::from_str(parts[0])?;
+        let name = parts[1].to_string();
+        Ok(Fetch { hash, name })
+    }
+}
+
