@@ -201,10 +201,8 @@ fn test_fetch() {
         .build()
         .expect("failed to build runtime");
     let mut executor = Box::new(MockExecutor::new());
-    let object = Object {
-        kind: ObjectKind::Blob,
-        data: b"1234567890".to_vec(),
-    };
+    let object =
+        Object::new(ObjectKind::Blob, b"1234567890".to_vec()).expect("failed to create object");
     let object_clone = object.clone();
     executor
         .expect_fetch()
@@ -245,10 +243,8 @@ fn test_fetch() {
         .build()
         .expect("failed to build runtime");
     let mut executor = Box::new(MockExecutor::new());
-    let object = Object {
-        kind: ObjectKind::Blob,
-        data: b"abcdef".to_vec(),
-    };
+    let object =
+        Object::new(ObjectKind::Blob, b"abcdef".to_vec()).expect("failed to create object");
     let object_clone = object.clone();
     executor
         .expect_fetch()
@@ -326,14 +322,10 @@ fn test_push() {
         .expect("failed to build runtime");
 
     let hash = Hash::from_data_sha256(b"1234567890").expect("should be set");
-    let object0 = Object {
-        kind: ObjectKind::Blob,
-        data: b"1234567890".to_vec(),
-    };
-    let object1 = Object {
-        kind: ObjectKind::Blob,
-        data: b"abcdef".to_vec(),
-    };
+    let object0 =
+        Object::new(ObjectKind::Blob, b"1234567890".to_vec()).expect("failed to create object");
+    let object1 =
+        Object::new(ObjectKind::Blob, b"abcdef".to_vec()).expect("failed to create object");
 
     let mut executor = Box::new(MockExecutor::new());
     executor
@@ -382,10 +374,8 @@ fn test_push() {
         .build()
         .expect("failed to build runtime");
 
-    let object0 = Object {
-        kind: ObjectKind::Blob,
-        data: b"1234567890".to_vec(),
-    };
+    let object0 =
+        Object::new(ObjectKind::Blob, b"1234567890".to_vec()).expect("failed to create object");
     let hash = Hash::from_data_sha256(b"1234567890").expect("should be set");
     let another_hash = Hash::from_data_sha256(b"abcdef").expect("should be set");
 
@@ -547,10 +537,8 @@ fn test_push() {
     let mut git = Box::new(MockGit::new());
     git.expect_resolve_reference()
         .returning(|_name| Ok(Hash::from_data_sha256(b"abcdef").expect("should be set")));
-    let object = Object {
-        kind: ObjectKind::Blob,
-        data: b"1234567890".to_vec(),
-    };
+    let object =
+        Object::new(ObjectKind::Blob, b"1234567890".to_vec()).expect("failed to create object");
     let object_hash = object.hash(true);
     git.expect_list_objects()
         .returning(move |_ref_hash| Ok(vec![object_hash.clone()]));
@@ -619,10 +607,8 @@ fn test_push() {
     let mut git = Box::new(MockGit::new());
     git.expect_resolve_reference()
         .returning(|_name| Ok(Hash::from_data_sha256(b"abcdef").expect("should be set")));
-    let object = Object {
-        kind: ObjectKind::Blob,
-        data: b"1234567890".to_vec(),
-    };
+    let object =
+        Object::new(ObjectKind::Blob, b"1234567890".to_vec()).expect("failed to create object");
     let object_hash = object.hash(true);
     git.expect_list_missing_objects()
         .returning(move |_local_hash, _remote_hash| Ok(vec![object_hash.clone()]));

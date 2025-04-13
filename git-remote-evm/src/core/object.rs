@@ -43,11 +43,29 @@ impl FromStr for ObjectKind {
 
 #[derive(Debug, PartialEq, Clone, Eq, StdHash)]
 pub struct Object {
-    pub kind: ObjectKind,
-    pub data: Vec<u8>,
+    kind: ObjectKind,
+    data: Vec<u8>,
+    related_objects: Vec<Hash>,
 }
 
 impl Object {
+    pub fn new(kind: ObjectKind, data: Vec<u8>) -> Result<Self, RemoteHelperError> {
+        let related_objects = Self::find_related_objects(&kind, &data)?;
+        Ok(Self { kind, data, related_objects })
+    }
+
+    pub fn get_kind(&self) -> &ObjectKind {
+        &self.kind
+    }
+
+    pub fn get_data(&self) -> &Vec<u8> {
+        &self.data
+    }
+
+    pub fn get_related_objects(&self) -> &Vec<Hash> {
+        &self.related_objects
+    }
+
     pub fn serialize(&self) -> Vec<u8> {
         let mut data: Vec<u8> = Vec::new();
         data.extend_from_slice(self.kind.to_string().as_bytes());
@@ -64,6 +82,72 @@ impl Object {
             Hash::from_data_sha256(&data).expect("creating hash from a valid object failed")
         } else {
             Hash::from_data_sha1(&data).expect("creating hash from a valid object failed")
+        }
+    }
+
+    fn find_related_objects(kind: &ObjectKind, data: &[u8]) -> Result<Vec<Hash>, RemoteHelperError> {
+        let data_str = String::from_utf8_lossy(data).to_string();
+        match kind {
+            ObjectKind::Blob => Ok(vec![]),
+            ObjectKind::Tree => {
+                let mut related_objects = vec![];
+                for line in data_str.lines() {
+                    let parts = line.split_whitespace().collect::<Vec<_>>();
+                    match parts.len() {
+                        3 | 4 => related_objects.push(Hash::from_str(&parts[2])?),
+                        _ => return Err(RemoteHelperError::Invalid {
+                            what: "object tree".to_string(),
+                            value: data_str,
+                        })
+                    }
+                }
+                Ok(related_objects)
+            },
+            ObjectKind::Commit => {
+                let mut related_objects = vec![];
+                for line in data_str.lines() {
+                    let parts = line.split_whitespace().collect::<Vec<_>>();
+                    if parts.len() < 2 {
+                        return Err(RemoteHelperError::Invalid {
+                            what: "object commit".to_string(),
+                            value: data_str,
+                        });
+                    }
+                    let kind = parts[0];
+                    match kind {
+                        "tree" | "parent" => {
+                            related_objects.push(Hash::from_str(&parts[1])?);
+                        },
+                        _ => break,
+                    }
+                }
+                Ok(related_objects)
+            },
+            ObjectKind::Tag => {
+                let lines = data_str.lines().collect::<Vec<_>>();
+                if lines.is_empty() {
+                    return Err(RemoteHelperError::Invalid {
+                        what: "object tag".to_string(),
+                        value: data_str,
+                    });
+                }
+                let parts = lines[0].split_whitespace().collect::<Vec<_>>();
+                if parts.len() != 2 {
+                    return Err(RemoteHelperError::Invalid {
+                        what: "object tag".to_string(),
+                        value: data_str,
+                    });
+                }
+                let kind = parts[0];
+                if kind != "object" {
+                    return Err(RemoteHelperError::Invalid {
+                        what: "object tag".to_string(),
+                        value: data_str,
+                    });
+                }
+                let object = Hash::from_str(&parts[1])?;
+                Ok(vec![object])
+            },
         }
     }
 
@@ -106,9 +190,11 @@ impl Object {
             });
         }
 
+        let related_objects = Self::find_related_objects(&kind, &data)?;
         Ok(Self {
             kind,
             data: data.to_vec(),
+            related_objects,
         })
     }
 }
@@ -129,12 +215,14 @@ fn test_object_serialize() {
     let object = Object {
         kind: ObjectKind::Blob,
         data: vec![],
+        related_objects: vec![],
     };
     assert_eq!(object.serialize(), b"blob 0\0");
 
     let object = Object {
         kind: ObjectKind::Blob,
         data: b"test".to_vec(),
+        related_objects: vec![],
     };
     assert_eq!(object.serialize(), b"blob 4\0test");
 }

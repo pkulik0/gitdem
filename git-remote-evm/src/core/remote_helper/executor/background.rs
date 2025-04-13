@@ -305,17 +305,17 @@ async fn test_list() {
 async fn test_push() {
     let executor = setup_test_executor().await;
 
-    let object = Object {
-        kind: ObjectKind::Blob,
-        data: b"test".to_vec(),
-    };
+    let object = Object::new(ObjectKind::Blob, b"test".to_vec()).expect("failed to create object");
     let hash = object.hash(true);
     let objects = vec![object];
     let refs = vec![Reference::Normal {
         name: "refs/heads/main".to_string(),
         hash: hash.clone(),
     }];
-    executor.push(objects, refs, true).await.expect("failed to push");
+    executor
+        .push(objects, refs, true)
+        .await
+        .expect("failed to push");
 
     let refs = executor.list().await.expect("failed to list references");
     let expected = vec![
@@ -339,17 +339,17 @@ async fn test_push() {
 async fn test_fetch() {
     let executor = setup_test_executor().await;
 
-    let object = Object {
-        kind: ObjectKind::Blob,
-        data: b"test".to_vec(),
-    };
+    let object = Object::new(ObjectKind::Blob, b"test".to_vec()).expect("failed to create object");
     let hash = object.hash(true);
     let objects = vec![object.clone()];
     let refs = vec![Reference::Normal {
         name: "refs/heads/main".to_string(),
         hash: hash.clone(),
     }];
-    executor.push(objects, refs, true).await.expect("failed to push");
+    executor
+        .push(objects, refs, true)
+        .await
+        .expect("failed to push");
 
     let fetched_object = executor
         .fetch(hash.clone())
@@ -362,10 +362,7 @@ async fn test_fetch() {
 async fn test_get_references() {
     let executor = setup_test_executor().await;
 
-    let object = Object {
-        kind: ObjectKind::Blob,
-        data: b"test".to_vec(),
-    };
+    let object = Object::new(ObjectKind::Blob, b"test".to_vec()).expect("failed to create object");
     let hash = object.hash(true);
     let objects = vec![object];
     let ref_name = "refs/heads/main".to_string();
@@ -373,7 +370,10 @@ async fn test_get_references() {
         name: ref_name.clone(),
         hash: hash.clone(),
     }];
-    executor.push(objects, refs, true).await.expect("failed to push");
+    executor
+        .push(objects, refs, true)
+        .await
+        .expect("failed to push");
 
     let refs = executor
         .resolve_references(vec![ref_name.clone()])
@@ -393,17 +393,17 @@ async fn test_list_objects() {
         .expect("failed to list objects");
     assert_eq!(hashes.len(), 0);
 
-    let object = Object {
-        kind: ObjectKind::Blob,
-        data: b"test".to_vec(),
-    };
+    let object = Object::new(ObjectKind::Blob, b"test".to_vec()).expect("failed to create object");
     let hash = object.hash(true);
     let objects = vec![object];
     let refs = vec![Reference::Normal {
         name: "refs/heads/main".to_string(),
         hash: hash.clone(),
     }];
-    executor.push(objects, refs, true).await.expect("failed to push");
+    executor
+        .push(objects, refs, true)
+        .await
+        .expect("failed to push");
 
     let hashes = executor
         .list_objects()

@@ -307,18 +307,15 @@ impl Git for SystemGit {
                 action: "getting object type".to_string(),
                 details: Some(e.to_string()),
             })?;
-        let object = Object {
-            kind,
-            data: output.stdout,
-        };
-        debug!("got object {}: {}", hash, object.kind);
+        let object = Object::new(kind, output.stdout)?;
+        debug!("got object {}: {}", hash, object.get_kind());
         Ok(object)
     }
 
     fn save_object(&self, object: Object) -> Result<(), RemoteHelperError> {
         trace!(
             "saving object: {} in {}",
-            object.kind,
+            object.get_kind(),
             self.path.to_string_lossy()
         );
         let mut cmd = Command::new("git")
@@ -327,7 +324,7 @@ impl Git for SystemGit {
             .args(&[
                 "hash-object",
                 "-t",
-                &object.kind.to_string(),
+                &object.get_kind().to_string(),
                 "-w",
                 "--stdin",
             ])
@@ -346,7 +343,7 @@ impl Git for SystemGit {
                 action: "saving object".to_string(),
                 details: Some("failed to get stdin".to_string()),
             })?
-            .write_all(&object.data)
+            .write_all(object.get_data())
             .map_err(|e| RemoteHelperError::Failure {
                 action: "writing object to stdin".to_string(),
                 details: Some(e.to_string()),
@@ -482,10 +479,7 @@ fn test_save_object() {
     let git = SystemGit::new(repo_dir.path().to_path_buf());
 
     let data = b"test";
-    let object = Object {
-        kind: ObjectKind::Blob,
-        data: data.to_vec(),
-    };
+    let object = Object::new(ObjectKind::Blob, data.to_vec()).expect("failed to create object");
     git.save_object(object).expect("failed to save object");
 }
 
@@ -536,41 +530,22 @@ fn test_get_object() {
     let object = git
         .get_object(get_head_hash(&repo_dir))
         .expect("failed to get object");
-    assert_eq!(object.kind, ObjectKind::Commit);
-    let commit_data =
-        String::from_utf8(object.data).expect("failed to convert object data to string");
-    let tree_data = commit_data
-        .split('\n')
-        .next()
-        .expect("failed to get tree data");
-    let tree_hash_str = tree_data
-        .strip_prefix("tree ")
-        .expect("failed to strip tree prefix");
-    let tree_hash = Hash::from_str(tree_hash_str).expect("failed to parse tree hash");
+    assert_eq!(object.get_kind(), &ObjectKind::Commit);
+    let related_objects = object.get_related_objects();
+    assert_eq!(related_objects.len(), 1);
 
     let object = git
-        .get_object(tree_hash)
+        .get_object(related_objects[0].clone())
         .expect("failed to get tree object");
-    assert_eq!(object.kind, ObjectKind::Tree);
-    let tree_data =
-        String::from_utf8(object.data).expect("failed to convert object data to string");
-    let tree_entries = tree_data
-        .split('\n')
-        .next()
-        .expect("failed to get tree entries");
-    let blob_hash_str = tree_entries
-        .strip_prefix("100644 blob ")
-        .expect("failed to strip blob prefix");
-    let blob_hash_str = blob_hash_str
-        .strip_suffix("\tabc")
-        .expect("failed to strip blob suffix");
-    let blob_hash = Hash::from_str(blob_hash_str).expect("failed to parse blob hash");
+    assert_eq!(object.get_kind(), &ObjectKind::Tree);
+    let related_objects = object.get_related_objects();
+    assert_eq!(related_objects.len(), 1);
 
     let object = git
-        .get_object(blob_hash)
+        .get_object(related_objects[0].clone())
         .expect("failed to get blob object");
-    assert_eq!(object.kind, ObjectKind::Blob);
-    assert_eq!(object.data, b"example");
+    assert_eq!(object.get_kind(), &ObjectKind::Blob);
+    assert_eq!(object.get_data(), b"example");
 }
 
 #[test]
