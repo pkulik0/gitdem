@@ -1,5 +1,3 @@
-use mockall::predicate::eq;
-
 use crate::core::git::Git;
 #[cfg(test)]
 use crate::core::git::MockGit;
@@ -9,6 +7,8 @@ use crate::core::remote_helper::executor::Executor;
 #[cfg(test)]
 use crate::core::remote_helper::executor::MockExecutor;
 use crate::core::remote_helper::{RemoteHelper, RemoteHelperError};
+#[cfg(test)]
+use mockall::predicate::eq;
 use std::collections::HashSet;
 
 pub struct Evm {
@@ -643,19 +643,15 @@ fn test_push() {
     let hash = Hash::from_data_sha256(b"1234567890").expect("should be set");
     let hash_clone = hash.clone();
     git.expect_list_missing_objects()
-        .returning(move |_local_hash, _remote_hash| {
-            Ok(vec![hash_clone.clone()])
-        });
-    git.expect_get_object()
-        .with(eq(hash))
-        .returning(|_hash| {
-            Err(RemoteHelperError::Failure {
-                action: "".to_string(),
-                details: None,
-            })
-        });
+        .returning(move |_local_hash, _remote_hash| Ok(vec![hash_clone.clone()]));
+    git.expect_get_object().with(eq(hash)).returning(|_hash| {
+        Err(RemoteHelperError::Failure {
+            action: "".to_string(),
+            details: None,
+        })
+    });
     let evm = Evm::new(runtime, executor, git).expect("should be set");
-    let pushes = vec![Push { 
+    let pushes = vec![Push {
         local: "refs/heads/main".to_string(),
         remote: "refs/heads/main".to_string(),
         is_force: false,

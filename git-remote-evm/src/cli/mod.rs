@@ -10,6 +10,7 @@ mod error;
 
 #[cfg(test)]
 use crate::core::reference::Keys;
+#[cfg(test)]
 use crate::core::remote_helper::MockRemoteHelper;
 use crate::core::remote_helper::RemoteHelper;
 use crate::core::{hash::Hash, reference::Push};
