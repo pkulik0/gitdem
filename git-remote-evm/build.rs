@@ -12,34 +12,6 @@ fn check_package_manager() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn build_wallet_bridge(project_root: &Path) -> Result<(), Box<dyn Error>> {
-    let bridge_path = project_root.join("wallet-bridge");
-    println!("cargo:rerun-if-changed={}", bridge_path.display());
-
-    println!(
-        "installing wallet bridge dependencies at {}",
-        bridge_path.display()
-    );
-    let output = Command::new(PACKAGE_MANAGER)
-        .current_dir(bridge_path.as_path())
-        .arg("install")
-        .output()?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).into());
-    }
-
-    println!("building wallet bridge at {}", bridge_path.display());
-    let output = Command::new(PACKAGE_MANAGER)
-        .current_dir(bridge_path)
-        .args(&["run", "build"])
-        .output()?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).into());
-    }
-
-    Ok(())
-}
-
 fn build_on_chain(project_root: &Path) -> Result<(), Box<dyn Error>> {
     let on_chain_path = project_root.join("on-chain");
     println!("cargo:rerun-if-changed={}", on_chain_path.display());
@@ -87,11 +59,6 @@ fn main() {
     let project_root = Path::new(&manifest_dir_var)
         .parent()
         .expect("failed to get project root");
-
-    match build_wallet_bridge(project_root) {
-        Ok(_) => println!("wallet bridge built"),
-        Err(e) => exit_with_error("failed to build wallet bridge", e),
-    }
 
     match build_on_chain(project_root) {
         Ok(_) => println!("on-chain contract(s) built"),

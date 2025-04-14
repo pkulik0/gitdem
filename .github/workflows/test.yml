@@ -4,12 +4,10 @@ on:
   push:
     paths:
       - git-remote-evm/**
-      - wallet-bridge/**
       - on-chain/**
   pull_request:
     paths:
       - git-remote-evm/**
-      - wallet-bridge/**
       - on-chain/**
 env:
   CARGO_TERM_COLOR: always

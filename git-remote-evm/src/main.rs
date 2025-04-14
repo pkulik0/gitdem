@@ -9,6 +9,7 @@ mod e2e_tests;
 use args::Args;
 use cli::CLI;
 use core::git::Git;
+use core::remote_helper::executor::Background;
 use core::remote_helper::{error::RemoteHelperError, evm::Evm};
 use flexi_logger::{FileSpec, Logger, WriteMode};
 use log::{debug, error, warn};
@@ -41,7 +42,7 @@ fn setup_panic_hook() {
 fn construct_remote_helper(args: Args) -> Result<Evm, RemoteHelperError> {
     use core::git::SystemGit;
     use core::kv_source::GitConfigSource;
-    use core::remote_helper::{config::Config, executor::create_executor};
+    use core::remote_helper::config::Config;
 
     debug!("using evm remote helper");
     let kv_source = Box::new(GitConfigSource::new(args.directory().clone()));
@@ -73,13 +74,13 @@ fn construct_remote_helper(args: Args) -> Result<Evm, RemoteHelperError> {
         )?
     };
 
-    let executor = runtime.block_on(create_executor(
-        &config.get_rpc()?,
+    let executor = runtime.block_on(Background::new(
         config.get_wallet()?,
+        &config.get_rpc()?,
         address,
     ))?;
 
-    Evm::new(runtime, executor, git)
+    Evm::new(runtime, Box::new(executor), git)
 }
 
 fn exit_with_error(msg: &str, e: Box<dyn Error>) -> ! {

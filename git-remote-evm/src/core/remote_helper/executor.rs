@@ -1,3 +1,11 @@
+#[cfg(test)]
+use crate::core::object::ObjectKind;
+use crate::core::{
+    hash::Hash,
+    object::Object,
+    reference::{Keys, Reference},
+    remote_helper::{config::Wallet, error::RemoteHelperError},
+};
 use GitRepository::{Object as ContractObject, PushData, RefNormal};
 use alloy::network::EthereumWallet;
 use alloy::primitives::{Bytes, FixedBytes};
@@ -8,18 +16,23 @@ use alloy::providers::{Identity, ProviderBuilder, RootProvider};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::sol;
 use async_trait::async_trait;
+use mockall::automock;
 use std::str::FromStr;
 
-use super::Executor;
-use crate::core::hash::Hash;
-use crate::core::object::Object;
-#[cfg(test)]
-use crate::core::object::ObjectKind;
-use crate::core::remote_helper::config::Wallet;
-use crate::core::{
-    reference::{Keys, Reference},
-    remote_helper::error::RemoteHelperError,
-};
+#[automock]
+#[async_trait]
+pub trait Executor {
+    async fn list(&self) -> Result<Vec<Reference>, RemoteHelperError>;
+    async fn push(
+        &self,
+        objects: Vec<Object>,
+        refs: Vec<Reference>,
+        is_sha256: bool,
+    ) -> Result<(), RemoteHelperError>;
+    async fn fetch(&self, hash: Hash) -> Result<Object, RemoteHelperError>;
+    async fn resolve_references(&self, names: Vec<String>) -> Result<Vec<Hash>, RemoteHelperError>;
+    async fn list_objects(&self) -> Result<Vec<Hash>, RemoteHelperError>;
+}
 
 sol!(
     #[allow(missing_docs)]
@@ -299,7 +312,8 @@ async fn test_list() {
 async fn test_push() {
     let executor = setup_test_executor().await;
 
-    let object = Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
+    let object =
+        Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
     let hash = object.hash(true);
     let objects = vec![object];
     let refs = vec![Reference::Normal {
@@ -333,7 +347,8 @@ async fn test_push() {
 async fn test_fetch() {
     let executor = setup_test_executor().await;
 
-    let object = Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
+    let object =
+        Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
     let hash = object.hash(true);
     let objects = vec![object.clone()];
     let refs = vec![Reference::Normal {
@@ -356,7 +371,8 @@ async fn test_fetch() {
 async fn test_get_references() {
     let executor = setup_test_executor().await;
 
-    let object = Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
+    let object =
+        Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
     let hash = object.hash(true);
     let objects = vec![object];
     let ref_name = "refs/heads/main".to_string();
@@ -387,7 +403,8 @@ async fn test_list_objects() {
         .expect("failed to list objects");
     assert_eq!(hashes.len(), 0);
 
-    let object = Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
+    let object =
+        Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
     let hash = object.hash(true);
     let objects = vec![object];
     let refs = vec![Reference::Normal {
