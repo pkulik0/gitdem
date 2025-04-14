@@ -101,10 +101,8 @@ impl Object {
         match kind {
             ObjectKind::Blob => Ok(vec![]),
             ObjectKind::Tree => {
-                let mut related_objects = vec![];
-
                 let hash_length = if is_sha256 { 32 } else { 20 };
-
+                let mut related_objects = vec![];
                 let mut data = data;
                 while !data.is_empty() {
                     let null_index = data.iter().position(|b| *b == b'\0').ok_or(
@@ -138,6 +136,8 @@ impl Object {
                     let kind = parts[0];
                     match kind {
                         b"tree" | b"parent" => {
+                            // Commits unlike trees and blobs are utf8 encoded
+                            // The hash is parsed from string not bytes like in trees
                             let hash_str = String::from_utf8(parts[1].to_vec()).map_err(|e| {
                                 RemoteHelperError::Invalid {
                                     what: "object commit".to_string(),
