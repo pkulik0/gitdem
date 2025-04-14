@@ -16,6 +16,10 @@ pub enum Hash {
 }
 
 impl Hash {
+    pub fn is_sha256(&self) -> bool {
+        matches!(self, Self::Sha256(_))
+    }
+
     pub fn empty(is_sha256: bool) -> Self {
         if is_sha256 {
             Self::Sha256(
@@ -84,6 +88,18 @@ impl From<FixedBytes<32>> for Hash {
     fn from(value: FixedBytes<32>) -> Self {
         let str = value.to_string()[2..].to_string();
         Self::Sha256(str)
+    }
+}
+
+impl TryFrom<&[u8]> for Hash {
+    type Error = RemoteHelperError;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        let str = hex::encode(value);
+        Hash::from_str(&str).map_err(|e| RemoteHelperError::Failure {
+            action: "converting bytes to hash".to_string(),
+            details: Some(e.to_string()),
+        })
     }
 }
 

@@ -301,14 +301,23 @@ impl Git for SystemGit {
         let output = Command::new("git")
             .current_dir(self.path.as_path())
             .env_remove("GIT_DIR")
-            .args(&["cat-file", "-p", &hash.to_string()])
+            .args(&["cat-file", kind.to_string().as_str(), &hash.to_string()])
             .output()
             .map_err(|e| RemoteHelperError::Failure {
                 action: "getting object type".to_string(),
                 details: Some(e.to_string()),
             })?;
-        let object = Object::new(kind, output.stdout)?;
+        let object = Object::new(kind, output.stdout, hash.is_sha256())?;
         debug!("got object {}: {}", hash, object.get_kind());
+
+        if hash != object.hash(self.is_sha256()?) {
+            return Err(RemoteHelperError::Failure {
+                action: "getting object".to_string(),
+                details: Some(format!("object hash mismatch: {} != {}", hash, object.hash(self.is_sha256()?)),
+                ),
+            });
+        }
+
         Ok(object)
     }
 
@@ -479,7 +488,7 @@ fn test_save_object() {
     let git = SystemGit::new(repo_dir.path().to_path_buf());
 
     let data = b"test";
-    let object = Object::new(ObjectKind::Blob, data.to_vec()).expect("failed to create object");
+    let object = Object::new(ObjectKind::Blob, data.to_vec(), true).expect("failed to create object");
     git.save_object(object).expect("failed to save object");
 }
 
@@ -498,17 +507,15 @@ fn get_head_hash(repo_dir: &tempfile::TempDir) -> Hash {
     Hash::from_str(stdout.trim()).expect("failed to parse hash")
 }
 
-#[test]
-fn test_get_object() {
-    let repo_dir = setup_git_repo(true);
-
+#[cfg(test)]
+fn commit_file(repo_dir: &tempfile::TempDir, file_name: &str, content: &[u8]) {
     let mut file =
-        std::fs::File::create(repo_dir.path().join("abc")).expect("failed to create abc file");
-    file.write_all(b"example").expect("failed to write abc");
+        std::fs::File::create(repo_dir.path().join(file_name)).expect("failed to create abc file");
+    file.write_all(content).expect("failed to write abc");
 
     let cmd = Command::new("git")
         .current_dir(repo_dir.path())
-        .args(&["add", "abc"])
+        .args(&["add", file_name])
         .output()
         .expect("failed to run git add");
     if !cmd.status.success() {
@@ -521,10 +528,21 @@ fn test_get_object() {
         .expect("failed to run git hash-object");
     if !cmd.status.success() {
         panic!(
-            "git commit failed: {}",
+            "git commit failed:\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&cmd.stdout),
             String::from_utf8_lossy(&cmd.stderr)
         );
     }
+}
+
+#[test]
+fn test_get_object() {
+    let repo_dir = setup_git_repo(false);
+
+    let blob0_content = b"example";
+    let blob1_content = b"example2";
+    commit_file(&repo_dir, "abc", blob0_content);
+    commit_file(&repo_dir, "def", blob1_content);
 
     let git = SystemGit::new(repo_dir.path().to_path_buf());
     let object = git
@@ -532,20 +550,26 @@ fn test_get_object() {
         .expect("failed to get object");
     assert_eq!(object.get_kind(), &ObjectKind::Commit);
     let related_objects = object.get_related_objects();
-    assert_eq!(related_objects.len(), 1);
+    assert_eq!(related_objects.len(), 2);
 
     let object = git
         .get_object(related_objects[0].clone())
         .expect("failed to get tree object");
     assert_eq!(object.get_kind(), &ObjectKind::Tree);
     let related_objects = object.get_related_objects();
-    assert_eq!(related_objects.len(), 1);
+    assert_eq!(related_objects.len(), 2);
 
-    let object = git
+    let blob0 = git
         .get_object(related_objects[0].clone())
         .expect("failed to get blob object");
-    assert_eq!(object.get_kind(), &ObjectKind::Blob);
-    assert_eq!(object.get_data(), b"example");
+    assert_eq!(blob0.get_kind(), &ObjectKind::Blob);
+    assert_eq!(blob0.get_data(), blob0_content);
+
+    let blob1 = git
+        .get_object(related_objects[1].clone())
+        .expect("failed to get blob object");
+    assert_eq!(blob1.get_kind(), &ObjectKind::Blob);
+    assert_eq!(blob1.get_data(), blob1_content);
 }
 
 #[test]

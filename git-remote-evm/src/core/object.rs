@@ -49,9 +49,17 @@ pub struct Object {
 }
 
 impl Object {
-    pub fn new(kind: ObjectKind, data: Vec<u8>) -> Result<Self, RemoteHelperError> {
-        let related_objects = Self::find_related_objects(&kind, &data)?;
-        Ok(Self { kind, data, related_objects })
+    pub fn new(
+        kind: ObjectKind,
+        data: Vec<u8>,
+        is_sha256: bool,
+    ) -> Result<Self, RemoteHelperError> {
+        let related_objects = Self::find_related_objects(&kind, &data, is_sha256)?;
+        Ok(Self {
+            kind,
+            data,
+            related_objects,
+        })
     }
 
     pub fn get_kind(&self) -> &ObjectKind {
@@ -85,73 +93,94 @@ impl Object {
         }
     }
 
-    fn find_related_objects(kind: &ObjectKind, data: &[u8]) -> Result<Vec<Hash>, RemoteHelperError> {
-        let data_str = String::from_utf8_lossy(data).to_string();
+    fn find_related_objects(
+        kind: &ObjectKind,
+        data: &[u8],
+        is_sha256: bool,
+    ) -> Result<Vec<Hash>, RemoteHelperError> {
         match kind {
             ObjectKind::Blob => Ok(vec![]),
             ObjectKind::Tree => {
                 let mut related_objects = vec![];
-                for line in data_str.lines() {
-                    let parts = line.split_whitespace().collect::<Vec<_>>();
-                    match parts.len() {
-                        3 | 4 => related_objects.push(Hash::from_str(&parts[2])?),
-                        _ => return Err(RemoteHelperError::Invalid {
-                            what: "object tree".to_string(),
-                            value: data_str,
-                        })
-                    }
+
+                let hash_length = if is_sha256 { 32 } else { 20 };
+
+                let mut data = data;
+                while !data.is_empty() {
+                    let null_index = data.iter().position(|b| *b == b'\0').ok_or(
+                        RemoteHelperError::Invalid {
+                            what: "object tree line".to_string(),
+                            value: format!("full: {}", String::from_utf8_lossy(&data),),
+                        },
+                    )?;
+                    data = &data[null_index + 1..];
+
+                    let hash_bytes = &data[..hash_length];
+                    let hash = Hash::try_from(hash_bytes)?;
+                    related_objects.push(hash);
+
+                    data = &data[hash_length..];
                 }
                 Ok(related_objects)
-            },
+            }
             ObjectKind::Commit => {
                 let mut related_objects = vec![];
-                for line in data_str.lines() {
-                    let parts = line.split_whitespace().collect::<Vec<_>>();
+                let lines = data.split(|b| *b == b'\n').collect::<Vec<_>>();
+                for line in lines {
+                    let parts = line.split(|b| *b == b' ').collect::<Vec<_>>();
                     if parts.len() < 2 {
                         return Err(RemoteHelperError::Invalid {
                             what: "object commit".to_string(),
-                            value: data_str,
+                            value: String::from_utf8_lossy(line).to_string(),
                         });
                     }
+
                     let kind = parts[0];
                     match kind {
-                        "tree" | "parent" => {
-                            related_objects.push(Hash::from_str(&parts[1])?);
-                        },
+                        b"tree" | b"parent" => {
+                            let hash_str = String::from_utf8(parts[1].to_vec()).map_err(|e| {
+                                RemoteHelperError::Invalid {
+                                    what: "object commit".to_string(),
+                                    value: e.to_string(),
+                                }
+                            })?;
+                            let hash = Hash::from_str(&hash_str)?;
+                            related_objects.push(hash);
+                        }
                         _ => break,
                     }
                 }
                 Ok(related_objects)
-            },
+            }
             ObjectKind::Tag => {
-                let lines = data_str.lines().collect::<Vec<_>>();
+                let lines = data.split(|b| *b == b'\n').collect::<Vec<_>>();
                 if lines.is_empty() {
                     return Err(RemoteHelperError::Invalid {
                         what: "object tag".to_string(),
-                        value: data_str,
+                        value: String::from_utf8_lossy(data).to_string(),
                     });
                 }
-                let parts = lines[0].split_whitespace().collect::<Vec<_>>();
+                let parts = lines[0].split(|b| *b == b' ').collect::<Vec<_>>();
                 if parts.len() != 2 {
                     return Err(RemoteHelperError::Invalid {
                         what: "object tag".to_string(),
-                        value: data_str,
+                        value: String::from_utf8_lossy(lines[0]).to_string(),
                     });
                 }
                 let kind = parts[0];
-                if kind != "object" {
+                if kind != b"object" {
                     return Err(RemoteHelperError::Invalid {
                         what: "object tag".to_string(),
-                        value: data_str,
+                        value: String::from_utf8_lossy(lines[0]).to_string(),
                     });
                 }
-                let object = Hash::from_str(&parts[1])?;
+                let object = Hash::try_from(parts[1])?;
                 Ok(vec![object])
-            },
+            }
         }
     }
 
-    pub fn deserialize(input: &[u8]) -> Result<Self, RemoteHelperError> {
+    pub fn deserialize(input: &[u8], is_sha256: bool) -> Result<Self, RemoteHelperError> {
         let parts = input.splitn(2, |b| *b == b'\0').collect::<Vec<_>>();
         if parts.len() != 2 {
             return Err(RemoteHelperError::Invalid {
@@ -190,7 +219,7 @@ impl Object {
             });
         }
 
-        let related_objects = Self::find_related_objects(&kind, &data)?;
+        let related_objects = Self::find_related_objects(&kind, &data, is_sha256)?;
         Ok(Self {
             kind,
             data: data.to_vec(),
@@ -201,11 +230,11 @@ impl Object {
 
 #[test]
 fn test_object_deserialize() {
-    let object = Object::deserialize(b"blob 0\0").unwrap();
+    let object = Object::deserialize(b"blob 0\0", true).unwrap();
     assert_eq!(object.kind, ObjectKind::Blob);
     assert_eq!(object.data, vec![] as Vec<u8>);
 
-    let object = Object::deserialize(b"blob 4\0test").unwrap();
+    let object = Object::deserialize(b"blob 4\0test", true).unwrap();
     assert_eq!(object.kind, ObjectKind::Blob);
     assert_eq!(object.data, b"test");
 }

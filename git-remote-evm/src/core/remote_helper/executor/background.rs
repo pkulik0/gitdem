@@ -222,7 +222,7 @@ impl Executor for Background {
             })?;
 
         let data = object._0;
-        let object = Object::deserialize(&data)?;
+        let object = Object::deserialize(&data, hash.is_sha256())?;
         Ok(object)
     }
 
@@ -299,7 +299,7 @@ async fn test_list() {
 async fn test_push() {
     let executor = setup_test_executor().await;
 
-    let object = Object::new(ObjectKind::Blob, b"test".to_vec()).expect("failed to create object");
+    let object = Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
     let hash = object.hash(true);
     let objects = vec![object];
     let refs = vec![Reference::Normal {
@@ -333,7 +333,7 @@ async fn test_push() {
 async fn test_fetch() {
     let executor = setup_test_executor().await;
 
-    let object = Object::new(ObjectKind::Blob, b"test".to_vec()).expect("failed to create object");
+    let object = Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
     let hash = object.hash(true);
     let objects = vec![object.clone()];
     let refs = vec![Reference::Normal {
@@ -356,7 +356,7 @@ async fn test_fetch() {
 async fn test_get_references() {
     let executor = setup_test_executor().await;
 
-    let object = Object::new(ObjectKind::Blob, b"test".to_vec()).expect("failed to create object");
+    let object = Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
     let hash = object.hash(true);
     let objects = vec![object];
     let ref_name = "refs/heads/main".to_string();
@@ -387,7 +387,7 @@ async fn test_list_objects() {
         .expect("failed to list objects");
     assert_eq!(hashes.len(), 0);
 
-    let object = Object::new(ObjectKind::Blob, b"test".to_vec()).expect("failed to create object");
+    let object = Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
     let hash = object.hash(true);
     let objects = vec![object];
     let refs = vec![Reference::Normal {

@@ -7,6 +7,7 @@ use crate::core::remote_helper::executor::Executor;
 #[cfg(test)]
 use crate::core::remote_helper::executor::MockExecutor;
 use crate::core::remote_helper::{RemoteHelper, RemoteHelperError};
+
 #[cfg(test)]
 use mockall::predicate::eq;
 use std::collections::HashSet;
@@ -208,7 +209,7 @@ fn test_fetch() {
         .expect("failed to build runtime");
     let mut executor = Box::new(MockExecutor::new());
     let object =
-        Object::new(ObjectKind::Blob, b"1234567890".to_vec()).expect("failed to create object");
+        Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true).expect("failed to create object");
     let object_clone = object.clone();
     executor
         .expect_fetch()
@@ -226,10 +227,11 @@ fn test_fetch() {
 
     // Case 2: Fetch succeeds (more objects)
     let object_blob =
-        Object::new(ObjectKind::Blob, b"1234567890".to_vec()).expect("failed to create object");
-    let tree_data = format!("100644 blob {}\tfile", object_blob.hash(true));
-    let object_tree = Object::new(ObjectKind::Tree, tree_data.as_bytes().to_vec())
-        .expect("failed to create object");
+        Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true).expect("failed to create object");
+    let hash_bytes = hex::decode(object_blob.hash(true).to_string()).expect("should succeed");
+    let mut tree_data = b"100644 file\0".to_vec();
+    tree_data.extend(hash_bytes);
+    let object_tree = Object::new(ObjectKind::Tree, tree_data, true).expect("failed to create object");
 
     let runtime = Builder::new_current_thread()
         .enable_all()
@@ -290,7 +292,7 @@ fn test_fetch() {
         .expect("failed to build runtime");
     let mut executor = Box::new(MockExecutor::new());
     let object =
-        Object::new(ObjectKind::Blob, b"abcdef".to_vec()).expect("failed to create object");
+        Object::new(ObjectKind::Blob, b"abcdef".to_vec(), true).expect("failed to create object");
     let object_clone = object.clone();
     executor
         .expect_fetch()
@@ -369,9 +371,9 @@ fn test_push() {
 
     let hash = Hash::from_data_sha256(b"1234567890").expect("should be set");
     let object0 =
-        Object::new(ObjectKind::Blob, b"1234567890".to_vec()).expect("failed to create object");
+        Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true).expect("failed to create object");
     let object1 =
-        Object::new(ObjectKind::Blob, b"abcdef".to_vec()).expect("failed to create object");
+        Object::new(ObjectKind::Blob, b"abcdef".to_vec(), true).expect("failed to create object");
 
     let mut executor = Box::new(MockExecutor::new());
     executor
@@ -421,7 +423,7 @@ fn test_push() {
         .expect("failed to build runtime");
 
     let object0 =
-        Object::new(ObjectKind::Blob, b"1234567890".to_vec()).expect("failed to create object");
+        Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true).expect("failed to create object");
     let hash = Hash::from_data_sha256(b"1234567890").expect("should be set");
     let another_hash = Hash::from_data_sha256(b"abcdef").expect("should be set");
 
@@ -584,7 +586,7 @@ fn test_push() {
     git.expect_resolve_reference()
         .returning(|_name| Ok(Hash::from_data_sha256(b"abcdef").expect("should be set")));
     let object =
-        Object::new(ObjectKind::Blob, b"1234567890".to_vec()).expect("failed to create object");
+        Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true).expect("failed to create object");
     let object_hash = object.hash(true);
     git.expect_list_objects()
         .returning(move |_ref_hash| Ok(vec![object_hash.clone()]));
@@ -654,7 +656,7 @@ fn test_push() {
     git.expect_resolve_reference()
         .returning(|_name| Ok(Hash::from_data_sha256(b"abcdef").expect("should be set")));
     let object =
-        Object::new(ObjectKind::Blob, b"1234567890".to_vec()).expect("failed to create object");
+        Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true).expect("failed to create object");
     let object_hash = object.hash(true);
     git.expect_list_missing_objects()
         .returning(move |_local_hash, _remote_hash| Ok(vec![object_hash.clone()]));
