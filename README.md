@@ -7,7 +7,8 @@ GitDem, short for Git Democracy, is a tool that allows you to manage your Git re
 It consists of several parts:
 
 - [Git remote helper](./git-remote-evm) that adds support for EVM blockchains to git
-- [Solidity contracts](./on-chain) to manage the on-chain side of things
+- [Solidity contracts](./on-chain) to interact with the on-chain part of GitDem
+- [CLI](./cli) to deploy and manage repositories via the command line (**Not available yet**)
 
 ## License
 
