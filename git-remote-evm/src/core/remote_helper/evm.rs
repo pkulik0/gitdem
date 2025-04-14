@@ -180,7 +180,7 @@ fn test_list() {
     let refs = vec![
         Reference::Normal {
             name: "refs/heads/main".to_string(),
-            hash: Hash::from_data_sha256(data).expect("should be set"),
+            hash: Hash::from_data(data, true).expect("should be set"),
         },
         Reference::Symbolic {
             name: "HEAD".to_string(),
@@ -208,8 +208,8 @@ fn test_fetch() {
         .build()
         .expect("failed to build runtime");
     let mut executor = Box::new(MockExecutor::new());
-    let object =
-        Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true).expect("failed to create object");
+    let object = Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true)
+        .expect("failed to create object");
     let object_clone = object.clone();
     executor
         .expect_fetch()
@@ -226,12 +226,13 @@ fn test_fetch() {
     .expect("should succeed");
 
     // Case 2: Fetch succeeds (more objects)
-    let object_blob =
-        Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true).expect("failed to create object");
+    let object_blob = Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true)
+        .expect("failed to create object");
     let hash_bytes = hex::decode(object_blob.hash(true).to_string()).expect("should succeed");
     let mut tree_data = b"100644 file\0".to_vec();
     tree_data.extend(hash_bytes);
-    let object_tree = Object::new(ObjectKind::Tree, tree_data, true).expect("failed to create object");
+    let object_tree =
+        Object::new(ObjectKind::Tree, tree_data, true).expect("failed to create object");
 
     let runtime = Builder::new_current_thread()
         .enable_all()
@@ -278,7 +279,7 @@ fn test_fetch() {
         })
     });
     let evm = Evm::new(runtime, executor, Box::new(MockGit::new())).expect("should be set");
-    let hash = Hash::from_data_sha256(b"1234567890").expect("should be set");
+    let hash = Hash::from_data(b"1234567890", true).expect("should be set");
     evm.fetch(vec![Fetch {
         hash,
         name: "refs/heads/main".to_string(),
@@ -339,7 +340,7 @@ fn test_push() {
         .build()
         .expect("failed to build runtime");
 
-    let hash = Hash::from_data_sha256(b"1234567890").expect("should be set");
+    let hash = Hash::from_data(b"1234567890", true).expect("should be set");
 
     let mut executor = Box::new(MockExecutor::new());
     executor
@@ -369,9 +370,9 @@ fn test_push() {
         .build()
         .expect("failed to build runtime");
 
-    let hash = Hash::from_data_sha256(b"1234567890").expect("should be set");
-    let object0 =
-        Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true).expect("failed to create object");
+    let hash = Hash::from_data(b"1234567890", true).expect("should be set");
+    let object0 = Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true)
+        .expect("failed to create object");
     let object1 =
         Object::new(ObjectKind::Blob, b"abcdef".to_vec(), true).expect("failed to create object");
 
@@ -422,10 +423,10 @@ fn test_push() {
         .build()
         .expect("failed to build runtime");
 
-    let object0 =
-        Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true).expect("failed to create object");
-    let hash = Hash::from_data_sha256(b"1234567890").expect("should be set");
-    let another_hash = Hash::from_data_sha256(b"abcdef").expect("should be set");
+    let object0 = Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true)
+        .expect("failed to create object");
+    let hash = Hash::from_data(b"1234567890", true).expect("should be set");
+    let another_hash = Hash::from_data(b"abcdef", true).expect("should be set");
 
     let mut executor = Box::new(MockExecutor::new());
     let hash_clone = hash.clone();
@@ -501,7 +502,7 @@ fn test_push() {
     });
     let mut git = Box::new(MockGit::new());
     git.expect_resolve_reference()
-        .returning(|_name| Ok(Hash::from_data_sha256(b"1234567890").expect("should be set")));
+        .returning(|_name| Ok(Hash::from_data(b"1234567890", true).expect("should be set")));
 
     let evm = Evm::new(runtime, executor, git).expect("should be set");
     let pushes = vec![Push {
@@ -530,7 +531,7 @@ fn test_push() {
 
     let mut git = Box::new(MockGit::new());
     git.expect_resolve_reference()
-        .returning(|_name| Ok(Hash::from_data_sha256(b"abcdef").expect("should be set")));
+        .returning(|_name| Ok(Hash::from_data(b"abcdef", true).expect("should be set")));
 
     let evm = Evm::new(runtime, executor, git).expect("should be set");
     let pushes = vec![Push {
@@ -554,7 +555,7 @@ fn test_push() {
 
     let mut git = Box::new(MockGit::new());
     git.expect_resolve_reference()
-        .returning(|_name| Ok(Hash::from_data_sha256(b"abcdef").expect("should be set")));
+        .returning(|_name| Ok(Hash::from_data(b"abcdef", true).expect("should be set")));
     git.expect_list_objects().returning(|_ref_hash| {
         Err(RemoteHelperError::Failure {
             action: "".to_string(),
@@ -584,9 +585,9 @@ fn test_push() {
 
     let mut git = Box::new(MockGit::new());
     git.expect_resolve_reference()
-        .returning(|_name| Ok(Hash::from_data_sha256(b"abcdef").expect("should be set")));
-    let object =
-        Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true).expect("failed to create object");
+        .returning(|_name| Ok(Hash::from_data(b"abcdef", true).expect("should be set")));
+    let object = Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true)
+        .expect("failed to create object");
     let object_hash = object.hash(true);
     git.expect_list_objects()
         .returning(move |_ref_hash| Ok(vec![object_hash.clone()]));
@@ -616,13 +617,13 @@ fn test_push() {
     let mut executor = Box::new(MockExecutor::new());
     executor.expect_resolve_references().returning(|_names| {
         Ok(vec![
-            Hash::from_data_sha256(b"1234567890").expect("should be set"),
+            Hash::from_data(b"1234567890", true).expect("should be set"),
         ])
     });
 
     let mut git = Box::new(MockGit::new());
     git.expect_resolve_reference()
-        .returning(|_name| Ok(Hash::from_data_sha256(b"abcdef").expect("should be set")));
+        .returning(|_name| Ok(Hash::from_data(b"abcdef", true).expect("should be set")));
     git.expect_list_missing_objects()
         .returning(|_local_hash, _remote_hash| {
             Err(RemoteHelperError::Failure {
@@ -648,15 +649,15 @@ fn test_push() {
     let mut executor = Box::new(MockExecutor::new());
     executor.expect_resolve_references().returning(|_names| {
         Ok(vec![
-            Hash::from_data_sha256(b"1234567890").expect("should be set"),
+            Hash::from_data(b"1234567890", true).expect("should be set"),
         ])
     });
 
     let mut git = Box::new(MockGit::new());
     git.expect_resolve_reference()
-        .returning(|_name| Ok(Hash::from_data_sha256(b"abcdef").expect("should be set")));
-    let object =
-        Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true).expect("failed to create object");
+        .returning(|_name| Ok(Hash::from_data(b"abcdef", true).expect("should be set")));
+    let object = Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true)
+        .expect("failed to create object");
     let object_hash = object.hash(true);
     git.expect_list_missing_objects()
         .returning(move |_local_hash, _remote_hash| Ok(vec![object_hash.clone()]));
@@ -686,7 +687,7 @@ fn test_push() {
     let mut executor = Box::new(MockExecutor::new());
     executor.expect_resolve_references().returning(|_names| {
         Ok(vec![
-            Hash::from_data_sha256(b"abcdef").expect("should be set"),
+            Hash::from_data(b"abcdef", true).expect("should be set"),
         ])
     });
     executor
@@ -700,8 +701,8 @@ fn test_push() {
 
     let mut git = Box::new(MockGit::new());
     git.expect_resolve_reference()
-        .returning(|_name| Ok(Hash::from_data_sha256(b"ebebeb").expect("should be set")));
-    let hash = Hash::from_data_sha256(b"1234567890").expect("should be set");
+        .returning(|_name| Ok(Hash::from_data(b"ebebeb", true).expect("should be set")));
+    let hash = Hash::from_data(b"1234567890", true).expect("should be set");
     let hash_clone = hash.clone();
     git.expect_list_missing_objects()
         .returning(move |_local_hash, _remote_hash| Ok(vec![hash_clone.clone()]));

@@ -38,18 +38,16 @@ impl Hash {
         }
     }
 
-    pub fn from_data_sha256(data: &[u8]) -> Result<Self, RemoteHelperError> {
-        use sha2::{Digest, Sha256};
-
-        let hash = Sha256::digest(data);
-        Ok(Self::Sha256(hex::encode(hash)))
-    }
-
-    pub fn from_data_sha1(data: &[u8]) -> Result<Self, RemoteHelperError> {
-        use sha1::{Digest, Sha1};
-
-        let hash = Sha1::digest(data);
-        Ok(Self::Sha1(hex::encode(hash)))
+    pub fn from_data(data: &[u8], is_sha256: bool) -> Result<Self, RemoteHelperError> {
+        if is_sha256 {
+            use sha2::{Digest, Sha256};
+            let hash = Sha256::digest(data);
+            Ok(Self::Sha256(hex::encode(hash)))
+        } else {
+            use sha1::{Digest, Sha1};
+            let hash = Sha1::digest(data);
+            Ok(Self::Sha1(hex::encode(hash)))
+        }
     }
 
     pub fn is_empty(&self) -> bool {

@@ -86,11 +86,8 @@ impl Object {
 
     pub fn hash(&self, is_sha256: bool) -> Hash {
         let data = self.serialize();
-        if is_sha256 {
-            Hash::from_data_sha256(&data).expect("creating hash from a valid object failed")
-        } else {
-            Hash::from_data_sha1(&data).expect("creating hash from a valid object failed")
-        }
+        Hash::from_data(&data, is_sha256)
+            .expect("creating hash from a valid object should not fail")
     }
 
     fn find_related_objects(
@@ -122,31 +119,26 @@ impl Object {
                 Ok(related_objects)
             }
             ObjectKind::Commit => {
+                // Commits unlike trees and blobs are utf8 encoded
+                let data =
+                    String::from_utf8(data.to_vec()).map_err(|e| RemoteHelperError::Invalid {
+                        what: "object commit".to_string(),
+                        value: e.to_string(),
+                    })?;
+
                 let mut related_objects = vec![];
-                let lines = data.split(|b| *b == b'\n').collect::<Vec<_>>();
-                for line in lines {
-                    let parts = line.split(|b| *b == b' ').collect::<Vec<_>>();
+                for line in data.lines() {
+                    let parts = line.split_whitespace().collect::<Vec<_>>();
                     if parts.len() < 2 {
                         return Err(RemoteHelperError::Invalid {
-                            what: "object commit".to_string(),
-                            value: String::from_utf8_lossy(line).to_string(),
+                            what: "object commit line".to_string(),
+                            value: line.to_string(),
                         });
                     }
 
                     let kind = parts[0];
                     match kind {
-                        b"tree" | b"parent" => {
-                            // Commits unlike trees and blobs are utf8 encoded
-                            // The hash is parsed from string not bytes like in trees
-                            let hash_str = String::from_utf8(parts[1].to_vec()).map_err(|e| {
-                                RemoteHelperError::Invalid {
-                                    what: "object commit".to_string(),
-                                    value: e.to_string(),
-                                }
-                            })?;
-                            let hash = Hash::from_str(&hash_str)?;
-                            related_objects.push(hash);
-                        }
+                        "tree" | "parent" => related_objects.push(Hash::from_str(parts[1])?),
                         _ => break,
                     }
                 }
