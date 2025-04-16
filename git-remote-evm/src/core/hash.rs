@@ -22,11 +22,9 @@ impl Hash {
 
     pub fn empty(is_sha256: bool) -> Self {
         if is_sha256 {
-            Self::Sha256(
-                "0000000000000000000000000000000000000000000000000000000000000000".to_string(),
-            )
+            Self::Sha256("0".repeat(64).to_string())
         } else {
-            Self::Sha1("0000000000000000000000000000000000000000".to_string())
+            Self::Sha1("0".repeat(40).to_string())
         }
     }
 
@@ -62,30 +60,25 @@ impl FromStr for Hash {
     type Err = RemoteHelperError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if HASH_REGEX_SHA1.is_match(s) {
-            Ok(Self::Sha1(s.to_string()))
-        } else if HASH_REGEX_SHA256.is_match(s) {
-            Ok(Self::Sha256(s.to_string()))
+        let no_padding = s.strip_suffix(&"0".repeat(24)).unwrap_or(s);
+
+        if HASH_REGEX_SHA1.is_match(no_padding) {
+            Ok(Self::Sha1(no_padding.to_string()))
+        } else if HASH_REGEX_SHA256.is_match(no_padding) {
+            Ok(Self::Sha256(no_padding.to_string()))
         } else {
             Err(RemoteHelperError::Failure {
                 action: "parsing hash".to_string(),
-                details: Some(format!("invalid hash: {:?}", s)),
+                details: Some(format!("invalid hash: {:?}", no_padding)),
             })
         }
-    }
-}
-
-impl From<FixedBytes<20>> for Hash {
-    fn from(value: FixedBytes<20>) -> Self {
-        let str = value.to_string()[2..].to_string();
-        Self::Sha1(str)
     }
 }
 
 impl From<FixedBytes<32>> for Hash {
     fn from(value: FixedBytes<32>) -> Self {
         let str = value.to_string()[2..].to_string();
-        Self::Sha256(str)
+        Self::from_str(&str).expect("the hash should be valid")
     }
 }
 
@@ -94,10 +87,7 @@ impl TryFrom<&[u8]> for Hash {
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         let str = hex::encode(value);
-        Hash::from_str(&str).map_err(|e| RemoteHelperError::Failure {
-            action: "converting bytes to hash".to_string(),
-            details: Some(e.to_string()),
-        })
+        Hash::from_str(&str)
     }
 }
 

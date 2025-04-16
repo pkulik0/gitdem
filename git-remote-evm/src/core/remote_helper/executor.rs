@@ -16,6 +16,7 @@ use alloy::providers::{Identity, ProviderBuilder, RootProvider};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::sol;
 use async_trait::async_trait;
+use log::debug;
 use mockall::automock;
 use std::str::FromStr;
 
@@ -27,7 +28,6 @@ pub trait Executor {
         &self,
         objects: Vec<Object>,
         refs: Vec<Reference>,
-        is_sha256: bool,
     ) -> Result<(), RemoteHelperError>;
     async fn fetch(&self, hash: Hash) -> Result<Object, RemoteHelperError>;
     async fn resolve_references(&self, names: Vec<String>) -> Result<Vec<Hash>, RemoteHelperError>;
@@ -155,7 +155,6 @@ impl Executor for Background {
         &self,
         objects: Vec<Object>,
         refs: Vec<Reference>,
-        is_sha256: bool,
     ) -> Result<(), RemoteHelperError> {
         let mut data: PushData = PushData {
             objects: vec![],
@@ -164,12 +163,12 @@ impl Executor for Background {
 
         for object in objects {
             data.objects.push(ContractObject {
-                hash: FixedBytes::from_str(object.hash(is_sha256).padded().as_str()).map_err(
-                    |e| RemoteHelperError::Failure {
+                hash: FixedBytes::from_str(object.get_hash().padded().as_str()).map_err(|e| {
+                    RemoteHelperError::Failure {
                         action: "converting hash to fixed bytes".to_string(),
                         details: Some(e.to_string()),
-                    },
-                )?,
+                    }
+                })?,
                 data: Bytes::from(object.serialize()),
             });
         }
@@ -236,6 +235,7 @@ impl Executor for Background {
 
         let data = object._0;
         let object = Object::deserialize(&data, hash.is_sha256())?;
+        debug!("fetched object: {:?}", object.get_hash());
         Ok(object)
     }
 
@@ -251,6 +251,7 @@ impl Executor for Background {
             })?;
 
         let hashes = response._0.into_iter().map(|h| h.into()).collect();
+        debug!("remote ref hashes: {:?}", hashes);
         Ok(hashes)
     }
 
@@ -263,6 +264,7 @@ impl Executor for Background {
         })?;
 
         let hashes = response._0.into_iter().map(|h| h.into()).collect();
+        debug!("remote object hashes: {:?}", hashes);
         Ok(hashes)
     }
 }
@@ -314,14 +316,14 @@ async fn test_push() {
 
     let object =
         Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
-    let hash = object.hash(true);
+    let hash = object.get_hash().clone();
     let objects = vec![object];
     let refs = vec![Reference::Normal {
         name: "refs/heads/main".to_string(),
         hash: hash.clone(),
     }];
     executor
-        .push(objects, refs, true)
+        .push(objects, refs)
         .await
         .expect("failed to push");
 
@@ -349,14 +351,14 @@ async fn test_fetch() {
 
     let object =
         Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
-    let hash = object.hash(true);
+    let hash = object.get_hash();
     let objects = vec![object.clone()];
     let refs = vec![Reference::Normal {
         name: "refs/heads/main".to_string(),
         hash: hash.clone(),
     }];
     executor
-        .push(objects, refs, true)
+        .push(objects, refs)
         .await
         .expect("failed to push");
 
@@ -373,7 +375,7 @@ async fn test_get_references() {
 
     let object =
         Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
-    let hash = object.hash(true);
+    let hash = object.get_hash().clone();
     let objects = vec![object];
     let ref_name = "refs/heads/main".to_string();
     let refs = vec![Reference::Normal {
@@ -381,7 +383,7 @@ async fn test_get_references() {
         hash: hash.clone(),
     }];
     executor
-        .push(objects, refs, true)
+        .push(objects, refs)
         .await
         .expect("failed to push");
 
@@ -405,14 +407,14 @@ async fn test_list_objects() {
 
     let object =
         Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create object");
-    let hash = object.hash(true);
+    let hash = object.get_hash().clone();
     let objects = vec![object];
     let refs = vec![Reference::Normal {
         name: "refs/heads/main".to_string(),
         hash: hash.clone(),
     }];
     executor
-        .push(objects, refs, true)
+        .push(objects, refs)
         .await
         .expect("failed to push");
 

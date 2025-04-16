@@ -310,11 +310,14 @@ impl Git for SystemGit {
         let object = Object::new(kind, output.stdout, hash.is_sha256())?;
         debug!("got object {}: {}", hash, object.get_kind());
 
-        if hash != object.hash(self.is_sha256()?) {
+        if &hash != object.get_hash() {
             return Err(RemoteHelperError::Failure {
                 action: "getting object".to_string(),
-                details: Some(format!("object hash mismatch: {} != {}", hash, object.hash(self.is_sha256()?)),
-                ),
+                details: Some(format!(
+                    "object hash mismatch: {} != {}",
+                    hash,
+                    object.get_hash()
+                )),
             });
         }
 
@@ -386,8 +389,8 @@ impl Git for SystemGit {
             details: Some(e.to_string()),
         })?;
 
-        let object_hash = object.hash(self.is_sha256()?);
-        if hash != object_hash {
+        let object_hash = object.get_hash();
+        if &hash != object_hash {
             return Err(RemoteHelperError::Failure {
                 action: "saving object".to_string(),
                 details: Some(format!("object hash mismatch: {} != {}", hash, object_hash)),
@@ -488,7 +491,8 @@ fn test_save_object() {
     let git = SystemGit::new(repo_dir.path().to_path_buf());
 
     let data = b"test";
-    let object = Object::new(ObjectKind::Blob, data.to_vec(), true).expect("failed to create object");
+    let object =
+        Object::new(ObjectKind::Blob, data.to_vec(), true).expect("failed to create object");
     git.save_object(object).expect("failed to save object");
 }
 
@@ -549,14 +553,14 @@ fn test_get_object() {
         .get_object(get_head_hash(&repo_dir))
         .expect("failed to get object");
     assert_eq!(object.get_kind(), &ObjectKind::Commit);
-    let related_objects = object.get_related_objects();
+    let related_objects = object.get_related();
     assert_eq!(related_objects.len(), 2);
 
     let object = git
         .get_object(related_objects[0].clone())
         .expect("failed to get tree object");
     assert_eq!(object.get_kind(), &ObjectKind::Tree);
-    let related_objects = object.get_related_objects();
+    let related_objects = object.get_related();
     assert_eq!(related_objects.len(), 2);
 
     let blob0 = git

@@ -1,5 +1,6 @@
 use super::hash::Hash;
 use crate::core::remote_helper::error::RemoteHelperError;
+use std::fmt::Debug;
 use std::hash::Hash as StdHash;
 use std::str::FromStr;
 
@@ -41,11 +42,22 @@ impl FromStr for ObjectKind {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Eq, StdHash)]
+#[derive(PartialEq, Clone, Eq, StdHash)]
 pub struct Object {
     kind: ObjectKind,
     data: Vec<u8>,
-    related_objects: Vec<Hash>,
+    related: Vec<Hash>,
+    hash: Hash,
+}
+
+impl Debug for Object {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Object {{ kind: {}, hash: {}, related: {:?} }}",
+            self.kind, self.hash, self.related
+        )
+    }
 }
 
 impl Object {
@@ -54,12 +66,19 @@ impl Object {
         data: Vec<u8>,
         is_sha256: bool,
     ) -> Result<Self, RemoteHelperError> {
-        let related_objects = Self::find_related_objects(&kind, &data, is_sha256)?;
-        Ok(Self {
+        let related_objects = Self::find_related(&kind, &data, is_sha256)?;
+        let mut object = Self {
             kind,
             data,
-            related_objects,
-        })
+            related: related_objects,
+            hash: Hash::empty(is_sha256),
+        };
+
+        let data = object.serialize();
+        let hash = Hash::from_data(&data, is_sha256)
+            .expect("creating hash from a valid object should not fail");
+        object.hash = hash;
+        Ok(object)
     }
 
     pub fn get_kind(&self) -> &ObjectKind {
@@ -70,8 +89,12 @@ impl Object {
         &self.data
     }
 
-    pub fn get_related_objects(&self) -> &Vec<Hash> {
-        &self.related_objects
+    pub fn get_related(&self) -> &Vec<Hash> {
+        &self.related
+    }
+
+    pub fn get_hash(&self) -> &Hash {
+        &self.hash
     }
 
     pub fn serialize(&self) -> Vec<u8> {
@@ -84,13 +107,7 @@ impl Object {
         data
     }
 
-    pub fn hash(&self, is_sha256: bool) -> Hash {
-        let data = self.serialize();
-        Hash::from_data(&data, is_sha256)
-            .expect("creating hash from a valid object should not fail")
-    }
-
-    fn find_related_objects(
+    fn find_related(
         kind: &ObjectKind,
         data: &[u8],
         is_sha256: bool,
@@ -211,12 +228,7 @@ impl Object {
             });
         }
 
-        let related_objects = Self::find_related_objects(&kind, &data, is_sha256)?;
-        Ok(Self {
-            kind,
-            data: data.to_vec(),
-            related_objects,
-        })
+        Self::new(kind, data.to_vec(), is_sha256)
     }
 }
 
@@ -233,17 +245,10 @@ fn test_object_deserialize() {
 
 #[test]
 fn test_object_serialize() {
-    let object = Object {
-        kind: ObjectKind::Blob,
-        data: vec![],
-        related_objects: vec![],
-    };
+    let object = Object::new(ObjectKind::Blob, vec![], true).expect("failed to create blob");
     assert_eq!(object.serialize(), b"blob 0\0");
 
-    let object = Object {
-        kind: ObjectKind::Blob,
-        data: b"test".to_vec(),
-        related_objects: vec![],
-    };
+    let object =
+        Object::new(ObjectKind::Blob, b"test".to_vec(), true).expect("failed to create blob");
     assert_eq!(object.serialize(), b"blob 4\0test");
 }
