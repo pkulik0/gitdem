@@ -2,6 +2,8 @@ use crate::core::git::Git;
 #[cfg(test)]
 use crate::core::git::MockGit;
 use crate::core::hash::Hash;
+#[cfg(test)]
+use crate::core::object::{Object, ObjectKind};
 use crate::core::reference::{Fetch, Push, Reference};
 use crate::core::remote_helper::executor::Executor;
 #[cfg(test)]
@@ -131,11 +133,8 @@ fn test_capabilities() {
 }
 
 #[test]
-fn test_list() {
-    use crate::core::reference::Reference;
-    use tokio::runtime::Builder;
-
-    let runtime = Builder::new_current_thread()
+fn test_list_empty() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("failed to build runtime");
@@ -144,8 +143,11 @@ fn test_list() {
     let evm = Evm::new(runtime, executor, Box::new(MockGit::new())).expect("should be set");
     let refs = evm.list(false).expect("should be set");
     assert_eq!(refs.len(), 0);
+}
 
-    let runtime = Builder::new_current_thread()
+#[test]
+fn test_list_normal() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("failed to build runtime");
@@ -171,12 +173,26 @@ fn test_list() {
 }
 
 #[test]
-fn test_fetch() {
-    use crate::core::object::{Object, ObjectKind};
-    use tokio::runtime::Builder;
+fn test_list_failure() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build runtime");
 
-    // Case 1: Fetch succeeds (one object)
-    let runtime = Builder::new_current_thread()
+    let mut executor = Box::new(MockExecutor::new());
+    executor.expect_list().returning(|| {
+        Err(RemoteHelperError::Failure {
+            action: "list".to_string(),
+            details: Some("object".to_string()),
+        })
+    });
+    let evm = Evm::new(runtime, executor, Box::new(MockGit::new())).expect("should be set");
+    evm.list(true).expect_err("should fail");
+}
+
+#[test]
+fn test_fetch_one() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("failed to build runtime");
@@ -197,8 +213,10 @@ fn test_fetch() {
         name: "refs/heads/main".to_string(),
     }])
     .expect("should succeed");
+}
 
-    // Case 2: Fetch succeeds (more objects)
+#[test]
+fn test_fetch_multiple() {
     let object_blob = Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true)
         .expect("failed to create object");
     let hash_bytes = hex::decode(object_blob.get_hash().to_string()).expect("should succeed");
@@ -207,7 +225,7 @@ fn test_fetch() {
     let object_tree =
         Object::new(ObjectKind::Tree, tree_data, true).expect("failed to create object");
 
-    let runtime = Builder::new_current_thread()
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("failed to build runtime");
@@ -239,9 +257,11 @@ fn test_fetch() {
         name: "refs/heads/main".to_string(),
     }])
     .expect("should succeed");
+}
 
-    // Case 3: Fetch fails because the object is missing
-    let runtime = Builder::new_current_thread()
+#[test]
+fn test_fetch_missing() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("failed to build runtime");
@@ -258,9 +278,34 @@ fn test_fetch() {
         name: "refs/heads/main".to_string(),
     }])
     .expect_err("should fail");
+}
 
-    // Case 4: Fetch fails because saving failed
-    let runtime = Builder::new_current_thread()
+#[test]
+fn test_fetch_failure() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build runtime");
+
+    let mut executor = Box::new(MockExecutor::new());
+    executor.expect_fetch().returning(|_| {
+        Err(RemoteHelperError::Failure {
+            action: "fetch".to_string(),
+            details: Some("object".to_string()),
+        })
+    });
+
+    let evm = Evm::new(runtime, executor, Box::new(MockGit::new())).expect("should be set");
+    evm.fetch(vec![Fetch {
+        hash: Hash::from_data(b"1234567890", true).expect("should be set"),
+        name: "refs/heads/main".to_string(),
+    }])
+    .expect_err("should fail");
+}
+
+#[test]
+fn test_fetch_save_failure() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("failed to build runtime");
@@ -289,412 +334,341 @@ fn test_fetch() {
 }
 
 #[test]
-fn test_push() {
-    use crate::core::object::{Object, ObjectKind};
-    use crate::core::reference::Push;
-    use tokio::runtime::Builder;
-
-    // Case 0: Empty push
-    let runtime = Builder::new_current_thread()
+fn test_push_empty() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("failed to build runtime");
-    let mut executor = Box::new(MockExecutor::new());
-    executor
-        .expect_push()
-        .returning(|_objects, _references| Ok(()));
-    let evm = Evm::new(runtime, executor, Box::new(MockGit::new())).expect("should be set");
-    let pushes = vec![];
-    evm.push(pushes).expect("should succeed");
+    let evm = Evm::new(
+        runtime,
+        Box::new(MockExecutor::new()),
+        Box::new(MockGit::new()),
+    )
+    .expect("should be set");
+    evm.push(vec![]).expect("should succeed");
+}
 
-    // Case 1: Remote already up to date
-    let runtime = Builder::new_current_thread()
+#[test]
+fn test_push_up_to_date() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("failed to build runtime");
-
     let hash = Hash::from_data(b"1234567890", true).expect("should be set");
 
     let mut executor = Box::new(MockExecutor::new());
-    executor
-        .expect_list_objects()
-        .returning(|| Ok(vec![Hash::from_data(b"abc", true).expect("should succeed")]));
-    executor
-        .expect_push()
-        .returning(|_objects, _references| Ok(()));
     let hash_clone = hash.clone();
     executor
         .expect_resolve_references()
-        .returning(move |_names| Ok(vec![hash_clone.clone()]));
+        .returning(move |_| Ok(vec![hash_clone.clone()]));
+    executor.expect_list_objects().returning(|| Ok(vec![]));
 
     let mut git = Box::new(MockGit::new());
-    let hash_clone = hash.clone();
     git.expect_resolve_reference()
-        .returning(move |_name| Ok(hash_clone.clone()));
+        .with(eq("refs/heads/main".to_string()))
+        .returning(move |_| Ok(hash.clone()));
 
     let evm = Evm::new(runtime, executor, git).expect("should be set");
-    let pushes = vec![Push {
+    evm.push(vec![Push {
         local: "refs/heads/main".to_string(),
         remote: "refs/heads/main".to_string(),
         is_force: false,
-    }];
-    evm.push(pushes).expect("should succeed");
+    }])
+    .expect("should succeed");
+}
 
-    // Case 2: Remote ref doesn't exist
-    let runtime = Builder::new_current_thread()
+#[test]
+fn test_push_no_new_objects() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("failed to build runtime");
 
-    let hash = Hash::from_data(b"1234567890", true).expect("should be set");
-    let object0 = Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true)
-        .expect("failed to create object");
-    let object1 =
-        Object::new(ObjectKind::Blob, b"abcdef".to_vec(), true).expect("failed to create object");
+    let object_hash = Hash::from_data(b"object_data", true).expect("should be set");
+    let new_ref_hash = Hash::from_data(b"ref_two", true).expect("should be set");
 
     let mut executor = Box::new(MockExecutor::new());
-    executor
-        .expect_resolve_references()
-        .returning(move |_names| Ok(vec![Hash::empty(true)]));
-    let object0_hash = object0.get_hash().clone();
+    executor.expect_resolve_references().returning(move |_| {
+        Ok(vec![
+            Hash::from_data(b"ref_one", true).expect("should be set"),
+        ])
+    });
+    let object_hash_clone = object_hash.clone();
     executor
         .expect_list_objects()
-        .returning(move || Ok(vec![object0_hash.clone()]));
+        .returning(move || Ok(vec![object_hash_clone.clone()]));
     executor
         .expect_push()
         .with(
-            eq(vec![object1.clone()]),
+            eq(vec![]),
             eq(vec![Reference::Normal {
                 name: "refs/heads/main".to_string(),
-                hash: hash.clone(),
+                hash: new_ref_hash.clone(),
             }]),
         )
-        .returning(|_objects, _references| Ok(()));
+        .returning(move |_, _| Ok(()));
 
     let mut git = Box::new(MockGit::new());
-    let hash_clone = hash.clone();
     git.expect_resolve_reference()
-        .returning(move |_name| Ok(hash_clone.clone()));
-    let object0_hash = object0.get_hash().clone();
-    let object1_hash = object1.get_hash().clone();
+        .returning(move |_| Ok(new_ref_hash.clone()));
     git.expect_list_objects()
-        .returning(move |_ref_hash| Ok(vec![object0_hash.clone(), object1_hash.clone()]));
-    git.expect_get_object()
-        .with(eq(object1.get_hash().clone()))
-        .returning(move |_| Ok(object1.clone()));
-    git.expect_is_sha256().returning(|| Ok(true));
+        .returning(move |_| Ok(vec![object_hash.clone()]));
 
     let evm = Evm::new(runtime, executor, git).expect("should be set");
-    let pushes = vec![Push {
+    evm.push(vec![Push {
         local: "refs/heads/main".to_string(),
         remote: "refs/heads/main".to_string(),
         is_force: false,
-    }];
-    evm.push(pushes).expect("should succeed");
+    }])
+    .expect("should succeed");
+}
 
-    // // Case 3: Remote ref exists but is different
-    // let runtime = Builder::new_current_thread()
-    //     .enable_all()
-    //     .build()
-    //     .expect("failed to build runtime");
+#[test]
+fn test_push_new_object() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build runtime");
 
-    // let object0 = Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true)
-    //     .expect("failed to create object");
-    // let hash = Hash::from_data(b"1234567890", true).expect("should be set");
-    // let another_hash = Hash::from_data(b"abcdef", true).expect("should be set");
+    let object =
+        Object::new(ObjectKind::Blob, b"object_data".to_vec(), true).expect("should be set");
+    let new_ref_hash = Hash::from_data(b"ref_two", true).expect("should be set");
 
-    // let mut executor = Box::new(MockExecutor::new());
-    // let hash_clone = hash.clone();
-    // executor
-    //     .expect_resolve_references()
-    //     .returning(move |_names| Ok(vec![hash_clone.clone()]));
-    // executor
-    //     .expect_list_objects()
-    //     .returning(|| Ok(vec![object0.hash(true)]));
-    // executor
-    //     .expect_push()
-    //     .with(
-    //         eq(vec![object0.clone()]),
-    //         eq(vec![Reference::Normal {
-    //             name: "refs/heads/main".to_string(),
-    //             hash: another_hash.clone(),
-    //         }]),
-    //         eq(true),
-    //     )
-    //     .returning(|_objects, _references, _is_sha256| Ok(()));
+    let mut executor = Box::new(MockExecutor::new());
+    executor.expect_resolve_references().returning(move |_| {
+        Ok(vec![
+            Hash::from_data(b"ref_one", true).expect("should be set"),
+        ])
+    });
+    executor.expect_list_objects().returning(move || Ok(vec![]));
+    let object_clone = object.clone();
+    executor
+        .expect_push()
+        .with(
+            eq(vec![object_clone]),
+            eq(vec![Reference::Normal {
+                name: "refs/heads/main".to_string(),
+                hash: new_ref_hash.clone(),
+            }]),
+        )
+        .returning(move |_, _| Ok(()));
 
-    // let mut git = Box::new(MockGit::new());
-    // let another_hash_clone = another_hash.clone();
-    // git.expect_resolve_reference()
-    //     .returning(move |_name| Ok(another_hash_clone.clone()));
-    // let object0_hash = object0.hash(true);
-    // git.expect_list_missing_objects()
-    //     .with(eq(another_hash.clone()), eq(hash.clone()))
-    //     .returning(move |_local_hash, _remote_hash| Ok(vec![object0_hash.clone()]));
-    // git.expect_get_object()
-    //     .with(eq(object0.hash(true)))
-    //     .returning(move |_object_hash| Ok(object0.clone()));
-    // git.expect_is_sha256().returning(|| Ok(true));
+    let mut git = Box::new(MockGit::new());
+    git.expect_resolve_reference()
+        .returning(move |_| Ok(new_ref_hash.clone()));
+    let object_hash = object.get_hash().clone();
+    git.expect_list_objects()
+        .returning(move |_| Ok(vec![object_hash.clone()]));
+    let object_hash = object.get_hash().clone();
+    git.expect_get_object()
+        .with(eq(object_hash.clone()))
+        .returning(move |_| Ok(object.clone()));
 
-    // let evm = Evm::new(runtime, executor, git).expect("should be set");
-    // let pushes = vec![Push {
-    //     local: "refs/heads/main".to_string(),
-    //     remote: "refs/heads/main".to_string(),
-    //     is_force: false,
-    // }];
-    // evm.push(pushes).expect("should succeed");
+    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    evm.push(vec![Push {
+        local: "refs/heads/main".to_string(),
+        remote: "refs/heads/main".to_string(),
+        is_force: false,
+    }])
+    .expect("should succeed");
+}
 
-    // // Failure case 1: Can't resolve local reference
-    // let runtime = Builder::new_current_thread()
-    //     .enable_all()
-    //     .build()
-    //     .expect("failed to build runtime");
+#[test]
+fn test_push_resolve_local_reference_failure() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build runtime");
 
-    // let mut git = Box::new(MockGit::new());
-    // git.expect_resolve_reference().returning(|_name| {
-    //     Err(RemoteHelperError::Failure {
-    //         action: "".to_string(),
-    //         details: None,
-    //     })
-    // });
-    // let evm = Evm::new(runtime, Box::new(MockExecutor::new()), git).expect("should be set");
-    // let pushes = vec![Push {
-    //     local: "refs/heads/main".to_string(),
-    //     remote: "refs/heads/main".to_string(),
-    //     is_force: false,
-    // }];
-    // evm.push(pushes).expect_err("should fail");
+    let mut git = Box::new(MockGit::new());
+    git.expect_resolve_reference().returning(move |_| {
+        Err(RemoteHelperError::Failure {
+            action: "resolve references".to_string(),
+            details: Some("object".to_string()),
+        })
+    });
 
-    // // Failure case 2: Can't resolve remote reference
-    // let runtime = Builder::new_current_thread()
-    //     .enable_all()
-    //     .build()
-    //     .expect("failed to build runtime");
+    let evm = Evm::new(runtime, Box::new(MockExecutor::new()), git).expect("should be set");
+    evm.push(vec![Push {
+        local: "refs/heads/main".to_string(),
+        remote: "refs/heads/main".to_string(),
+        is_force: false,
+    }])
+    .expect_err("should fail");
+}
 
-    // let mut executor = Box::new(MockExecutor::new());
-    // executor.expect_resolve_references().returning(|_names| {
-    //     Err(RemoteHelperError::Failure {
-    //         action: "".to_string(),
-    //         details: None,
-    //     })
-    // });
-    // let mut git = Box::new(MockGit::new());
-    // git.expect_resolve_reference()
-    //     .returning(|_name| Ok(Hash::from_data(b"1234567890", true).expect("should be set")));
+#[test]
+fn test_push_resolve_remote_reference_failure() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build runtime");
 
-    // let evm = Evm::new(runtime, executor, git).expect("should be set");
-    // let pushes = vec![Push {
-    //     local: "refs/heads/main".to_string(),
-    //     remote: "refs/heads/main".to_string(),
-    //     is_force: false,
-    // }];
-    // evm.push(pushes).expect_err("should fail");
+    let mut executor = Box::new(MockExecutor::new());
+    executor.expect_resolve_references().returning(|_| {
+        Err(RemoteHelperError::Failure {
+            action: "resolve references".to_string(),
+            details: Some("object".to_string()),
+        })
+    });
 
-    // // Failure case 3: Remote ref not present, can't list objects
-    // let runtime = Builder::new_current_thread()
-    //     .enable_all()
-    //     .build()
-    //     .expect("failed to build runtime");
+    let mut git = Box::new(MockGit::new());
+    git.expect_resolve_reference()
+        .returning(|_| Hash::from_data(b"ref_one", true));
 
-    // let mut executor = Box::new(MockExecutor::new());
-    // executor
-    //     .expect_resolve_references()
-    //     .returning(|_names| Ok(vec![Hash::empty(true)]));
-    // executor.expect_list_objects().returning(|| {
-    //     Err(RemoteHelperError::Failure {
-    //         action: "".to_string(),
-    //         details: None,
-    //     })
-    // });
+    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    evm.push(vec![Push {
+        local: "refs/heads/main".to_string(),
+        remote: "refs/heads/main".to_string(),
+        is_force: false,
+    }])
+    .expect_err("should fail");
+}
 
-    // let mut git = Box::new(MockGit::new());
-    // git.expect_resolve_reference()
-    //     .returning(|_name| Ok(Hash::from_data(b"abcdef", true).expect("should be set")));
+#[test]
+fn test_push_list_remote_objects_failure() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build runtime");
 
-    // let evm = Evm::new(runtime, executor, git).expect("should be set");
-    // let pushes = vec![Push {
-    //     local: "refs/heads/main".to_string(),
-    //     remote: "refs/heads/main".to_string(),
-    //     is_force: false,
-    // }];
-    // evm.push(pushes).expect_err("should fail");
+    let mut executor = Box::new(MockExecutor::new());
+    executor.expect_resolve_references().returning(|_| {
+        Ok(vec![
+            Hash::from_data(b"ref_one", true).expect("should be set"),
+        ])
+    });
+    executor.expect_list_objects().returning(|| {
+        Err(RemoteHelperError::Failure {
+            action: "list objects".to_string(),
+            details: Some("object".to_string()),
+        })
+    });
 
-    // // Failure case 4: Remote ref not present, can't list local objects
-    // let runtime = Builder::new_current_thread()
-    //     .enable_all()
-    //     .build()
-    //     .expect("failed to build runtime");
+    let mut git = Box::new(MockGit::new());
+    git.expect_resolve_reference()
+        .returning(|_| Hash::from_data(b"ref_two", true));
 
-    // let mut executor = Box::new(MockExecutor::new());
-    // executor
-    //     .expect_resolve_references()
-    //     .returning(|_names| Ok(vec![Hash::empty(true)]));
-    // executor.expect_list_objects().returning(|| Ok(vec![]));
+    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    evm.push(vec![Push {
+        local: "refs/heads/main".to_string(),
+        remote: "refs/heads/main".to_string(),
+        is_force: false,
+    }])
+    .expect_err("should fail");
+}
 
-    // let mut git = Box::new(MockGit::new());
-    // git.expect_resolve_reference()
-    //     .returning(|_name| Ok(Hash::from_data(b"abcdef", true).expect("should be set")));
-    // git.expect_list_objects().returning(|_ref_hash| {
-    //     Err(RemoteHelperError::Failure {
-    //         action: "".to_string(),
-    //         details: None,
-    //     })
-    // });
+#[test]
+fn test_push_list_local_objects_failure() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build runtime");
 
-    // let evm = Evm::new(runtime, executor, git).expect("should be set");
-    // let pushes = vec![Push {
-    //     local: "refs/heads/main".to_string(),
-    //     remote: "refs/heads/main".to_string(),
-    //     is_force: false,
-    // }];
-    // evm.push(pushes).expect_err("should fail");
+    let mut executor = Box::new(MockExecutor::new());
+    executor.expect_list_objects().returning(|| Ok(vec![]));
+    executor.expect_resolve_references().returning(|_| {
+        Ok(vec![
+            Hash::from_data(b"ref_one", true).expect("should be set"),
+        ])
+    });
 
-    // // Failure case 5: Remote ref not present, can't get local object
-    // let runtime = Builder::new_current_thread()
-    //     .enable_all()
-    //     .build()
-    //     .expect("failed to build runtime");
+    let mut git = Box::new(MockGit::new());
+    git.expect_resolve_reference()
+        .returning(|_| Hash::from_data(b"ref_two", true));
+    git.expect_list_objects().returning(|_| {
+        Err(RemoteHelperError::Failure {
+            action: "list objects".to_string(),
+            details: Some("object".to_string()),
+        })
+    });
 
-    // let mut executor = Box::new(MockExecutor::new());
-    // executor
-    //     .expect_resolve_references()
-    //     .returning(|_names| Ok(vec![Hash::empty(true)]));
-    // executor.expect_list_objects().returning(|| Ok(vec![]));
+    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    evm.push(vec![Push {
+        local: "refs/heads/main".to_string(),
+        remote: "refs/heads/main".to_string(),
+        is_force: false,
+    }])
+    .expect_err("should fail");
+}
 
-    // let mut git = Box::new(MockGit::new());
-    // git.expect_resolve_reference()
-    //     .returning(|_name| Ok(Hash::from_data(b"abcdef", true).expect("should be set")));
-    // let object = Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true)
-    //     .expect("failed to create object");
-    // let object_hash = object.hash(true);
-    // git.expect_list_objects()
-    //     .returning(move |_ref_hash| Ok(vec![object_hash.clone()]));
-    // git.expect_get_object()
-    //     .with(eq(object.hash(true)))
-    //     .returning(|_hash| {
-    //         Err(RemoteHelperError::Failure {
-    //             action: "".to_string(),
-    //             details: None,
-    //         })
-    //     });
+#[test]
+fn test_push_get_object_failure() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build runtime");
 
-    // let evm = Evm::new(runtime, executor, git).expect("should be set");
-    // let pushes = vec![Push {
-    //     local: "refs/heads/main".to_string(),
-    //     remote: "refs/heads/main".to_string(),
-    //     is_force: false,
-    // }];
-    // evm.push(pushes).expect_err("should fail");
+    let mut executor = Box::new(MockExecutor::new());
+    executor.expect_list_objects().returning(|| Ok(vec![]));
+    executor.expect_resolve_references().returning(|_| {
+        Ok(vec![
+            Hash::from_data(b"ref_one", true).expect("should be set"),
+        ])
+    });
 
-    // // Failure case 6: Present, can't get missing objects
-    // let runtime = Builder::new_current_thread()
-    //     .enable_all()
-    //     .build()
-    //     .expect("failed to build runtime");
+    let mut git = Box::new(MockGit::new());
+    git.expect_resolve_reference()
+        .returning(|_| Hash::from_data(b"ref_two", true));
+    git.expect_list_objects().returning(|_| {
+        Ok(vec![
+            Hash::from_data(b"object_hash", true).expect("should be set"),
+        ])
+    });
+    git.expect_get_object().returning(|_| {
+        Err(RemoteHelperError::Failure {
+            action: "get object".to_string(),
+            details: Some("object".to_string()),
+        })
+    });
 
-    // let mut executor = Box::new(MockExecutor::new());
-    // executor.expect_resolve_references().returning(|_names| {
-    //     Ok(vec![
-    //         Hash::from_data(b"1234567890", true).expect("should be set"),
-    //     ])
-    // });
+    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    evm.push(vec![Push {
+        local: "refs/heads/main".to_string(),
+        remote: "refs/heads/main".to_string(),
+        is_force: false,
+    }])
+    .expect_err("should fail");
+}
 
-    // let mut git = Box::new(MockGit::new());
-    // git.expect_resolve_reference()
-    //     .returning(|_name| Ok(Hash::from_data(b"abcdef", true).expect("should be set")));
-    // git.expect_list_missing_objects()
-    //     .returning(|_local_hash, _remote_hash| {
-    //         Err(RemoteHelperError::Failure {
-    //             action: "".to_string(),
-    //             details: None,
-    //         })
-    //     });
+#[test]
+fn test_push_failure() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build runtime");
 
-    // let evm = Evm::new(runtime, executor, git).expect("should be set");
-    // let pushes = vec![Push {
-    //     local: "refs/heads/main".to_string(),
-    //     remote: "refs/heads/main".to_string(),
-    //     is_force: false,
-    // }];
-    // evm.push(pushes).expect_err("should fail");
+    let mut executor = Box::new(MockExecutor::new());
+    executor.expect_list_objects().returning(|| Ok(vec![]));
+    executor.expect_resolve_references().returning(|_| {
+        Ok(vec![
+            Hash::from_data(b"ref_one", true).expect("should be set"),
+        ])
+    });
+    executor.expect_push().returning(|_, _| {
+        Err(RemoteHelperError::Failure {
+            action: "push".to_string(),
+            details: Some("object".to_string()),
+        })
+    });
 
-    // // Failure case 7: Present, can't get local object
-    // let runtime = Builder::new_current_thread()
-    //     .enable_all()
-    //     .build()
-    //     .expect("failed to build runtime");
+    let object =
+        Object::new(ObjectKind::Blob, b"object_data".to_vec(), true).expect("should be set");
 
-    // let mut executor = Box::new(MockExecutor::new());
-    // executor.expect_resolve_references().returning(|_names| {
-    //     Ok(vec![
-    //         Hash::from_data(b"1234567890", true).expect("should be set"),
-    //     ])
-    // });
+    let mut git = Box::new(MockGit::new());
+    git.expect_resolve_reference()
+        .returning(|_| Hash::from_data(b"ref_two", true));
+    let object_hash = object.get_hash().clone();
+    git.expect_list_objects()
+        .returning(move |_| Ok(vec![object_hash.clone()]));
+    git.expect_get_object()
+        .returning(move |_| Ok(object.clone()));
 
-    // let mut git = Box::new(MockGit::new());
-    // git.expect_resolve_reference()
-    //     .returning(|_name| Ok(Hash::from_data(b"abcdef", true).expect("should be set")));
-    // let object = Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true)
-    //     .expect("failed to create object");
-    // let object_hash = object.hash(true);
-    // git.expect_list_missing_objects()
-    //     .returning(move |_local_hash, _remote_hash| Ok(vec![object_hash.clone()]));
-    // git.expect_get_object()
-    //     .with(eq(object.hash(true)))
-    //     .returning(|_hash| {
-    //         Err(RemoteHelperError::Failure {
-    //             action: "".to_string(),
-    //             details: None,
-    //         })
-    //     });
-
-    // let evm = Evm::new(runtime, executor, git).expect("should be set");
-    // let pushes = vec![Push {
-    //     local: "refs/heads/main".to_string(),
-    //     remote: "refs/heads/main".to_string(),
-    //     is_force: false,
-    // }];
-    // evm.push(pushes).expect_err("should fail");
-
-    // // Failure case 8: Can't push
-    // let runtime = Builder::new_current_thread()
-    //     .enable_all()
-    //     .build()
-    //     .expect("failed to build runtime");
-
-    // let mut executor = Box::new(MockExecutor::new());
-    // executor.expect_resolve_references().returning(|_names| {
-    //     Ok(vec![
-    //         Hash::from_data(b"abcdef", true).expect("should be set"),
-    //     ])
-    // });
-    // executor
-    //     .expect_push()
-    //     .returning(|_objects, _references, _is_sha256| {
-    //         Err(RemoteHelperError::Failure {
-    //             action: "".to_string(),
-    //             details: None,
-    //         })
-    //     });
-
-    // let mut git = Box::new(MockGit::new());
-    // git.expect_resolve_reference()
-    //     .returning(|_name| Ok(Hash::from_data(b"ebebeb", true).expect("should be set")));
-    // let hash = Hash::from_data(b"1234567890", true).expect("should be set");
-    // let hash_clone = hash.clone();
-    // git.expect_list_missing_objects()
-    //     .returning(move |_local_hash, _remote_hash| Ok(vec![hash_clone.clone()]));
-    // git.expect_get_object().with(eq(hash)).returning(|_hash| {
-    //     Err(RemoteHelperError::Failure {
-    //         action: "".to_string(),
-    //         details: None,
-    //     })
-    // });
-    // let evm = Evm::new(runtime, executor, git).expect("should be set");
-    // let pushes = vec![Push {
-    //     local: "refs/heads/main".to_string(),
-    //     remote: "refs/heads/main".to_string(),
-    //     is_force: false,
-    // }];
-    // evm.push(pushes).expect_err("should fail");
+    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    evm.push(vec![Push {
+        local: "refs/heads/main".to_string(),
+        remote: "refs/heads/main".to_string(),
+        is_force: false,
+    }])
+    .expect_err("should fail");
 }
