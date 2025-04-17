@@ -9,6 +9,7 @@ use crate::core::remote_helper::executor::Executor;
 #[cfg(test)]
 use crate::core::remote_helper::executor::MockExecutor;
 use crate::core::remote_helper::{RemoteHelper, RemoteHelperError};
+use crate::print_user;
 use log::debug;
 #[cfg(test)]
 use mockall::predicate::eq;
@@ -44,6 +45,7 @@ impl RemoteHelper for Evm {
     }
 
     fn fetch(&self, fetches: Vec<Fetch>) -> Result<(), RemoteHelperError> {
+        print_user!("fetching {} references", fetches.len());
         let mut to_fetch: Vec<Hash> = fetches.into_iter().map(|f| f.hash).collect();
         let mut processed = HashSet::new();
         while let Some(hash) = to_fetch.pop() {
@@ -54,13 +56,17 @@ impl RemoteHelper for Evm {
             to_fetch.extend(object.get_related().iter().cloned());
             self.git.save_object(object)?;
         }
+        print_user!("got {} new objects", processed.len());
         Ok(())
     }
 
     fn push(&self, pushes: Vec<Push>) -> Result<(), RemoteHelperError> {
         if pushes.is_empty() {
+            print_user!("nothing to push");
             return Ok(());
         }
+
+        print_user!("calculating required updates");
 
         let local_ref_hashes = pushes
             .iter()
@@ -103,11 +109,18 @@ impl RemoteHelper for Evm {
             }
 
             if objects.is_empty() && references.is_empty() {
-                debug!("no changes to push");
+                print_user!("no changes to push");
                 return Ok(());
             }
+            print_user!(
+                "pushing {} object{} and {} reference{}",
+                objects.len(),
+                if objects.len() == 1 { "" } else { "s" },
+                references.len(),
+                if references.len() == 1 { "" } else { "s" },
+            );
             debug!(
-                "pushing objects: {:?} and references: {:?}",
+                "objects: {:?}, references: {:?}",
                 objects, references
             );
             self.executor
@@ -440,7 +453,9 @@ fn test_push_new_object() {
             Hash::from_data(b"ref_one", true).expect("should be set"),
         ])
     });
-    executor.expect_list_all_objects().returning(move || Ok(vec![]));
+    executor
+        .expect_list_all_objects()
+        .returning(move || Ok(vec![]));
     let object_clone = object.clone();
     executor
         .expect_push()

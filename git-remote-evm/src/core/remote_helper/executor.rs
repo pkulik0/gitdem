@@ -1,11 +1,11 @@
 #[cfg(test)]
 use crate::core::object::ObjectKind;
-use crate::core::{
+use crate::{core::{
     hash::Hash,
     object::Object,
     reference::{Keys, Reference},
     remote_helper::{config::Wallet, error::RemoteHelperError},
-};
+}, print_user};
 use GitRepository::{Object as ContractObject, PushData, RefNormal};
 use alloy::network::{AnyNetwork, EthereumWallet};
 use alloy::primitives::{Bytes, FixedBytes};
@@ -114,6 +114,7 @@ impl Background {
 #[async_trait]
 impl Executor for Background {
     async fn list(&self) -> Result<Vec<Reference>, RemoteHelperError> {
+        print_user!("getting references from the contract");
         let response =
             self.contract
                 .listRefs()
@@ -197,6 +198,7 @@ impl Executor for Background {
             }
         }
 
+        print_user!("submitting push transaction");
         let pending_tx = self
             .contract
             .pushObjectsAndRefs(data)
@@ -206,6 +208,7 @@ impl Executor for Background {
                 action: "pushing objects and refs".to_string(),
                 details: Some(e.to_string()),
             })?;
+        print_user!("waiting for confirmation, transaction hash: {}", pending_tx.tx_hash());
         pending_tx
             .with_required_confirmations(1)
             .get_receipt()
@@ -214,7 +217,7 @@ impl Executor for Background {
                 action: "pushing objects and refs".to_string(),
                 details: Some(e.to_string()),
             })?;
-
+        print_user!("transaction confirmed");
         Ok(())
     }
 
@@ -242,6 +245,7 @@ impl Executor for Background {
     }
 
     async fn resolve_references(&self, names: Vec<String>) -> Result<Vec<Hash>, RemoteHelperError> {
+        print_user!("resolving hashes of on-chain references");
         let response = self
             .contract
             .resolveRefs(names.clone())
@@ -258,6 +262,7 @@ impl Executor for Background {
     }
 
     async fn list_all_objects(&self) -> Result<Vec<Hash>, RemoteHelperError> {
+        print_user!("listing objects already available in the contract");
         let response = self.contract.getObjectHashes().call().await.map_err(|e| {
             RemoteHelperError::Failure {
                 action: "listing objects".to_string(),

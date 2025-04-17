@@ -5,6 +5,7 @@ mod cli;
 mod core;
 #[cfg(test)]
 mod e2e_tests;
+mod macros;
 
 use args::Args;
 use cli::CLI;
