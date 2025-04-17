@@ -74,7 +74,7 @@ impl RemoteHelper for Evm {
                 .executor
                 .resolve_references(remote_ref_names.clone())
                 .await?;
-            let remote_object_hashes = self.executor.list_objects().await?;
+            let remote_object_hashes = self.executor.list_all_objects().await?;
 
             let mut references = Vec::new();
             let mut objects = HashSet::new();
@@ -361,7 +361,7 @@ fn test_push_up_to_date() {
     executor
         .expect_resolve_references()
         .returning(move |_| Ok(vec![hash_clone.clone()]));
-    executor.expect_list_objects().returning(|| Ok(vec![]));
+    executor.expect_list_all_objects().returning(|| Ok(vec![]));
 
     let mut git = Box::new(MockGit::new());
     git.expect_resolve_reference()
@@ -395,7 +395,7 @@ fn test_push_no_new_objects() {
     });
     let object_hash_clone = object_hash.clone();
     executor
-        .expect_list_objects()
+        .expect_list_all_objects()
         .returning(move || Ok(vec![object_hash_clone.clone()]));
     executor
         .expect_push()
@@ -440,7 +440,7 @@ fn test_push_new_object() {
             Hash::from_data(b"ref_one", true).expect("should be set"),
         ])
     });
-    executor.expect_list_objects().returning(move || Ok(vec![]));
+    executor.expect_list_all_objects().returning(move || Ok(vec![]));
     let object_clone = object.clone();
     executor
         .expect_push()
@@ -538,7 +538,7 @@ fn test_push_list_remote_objects_failure() {
             Hash::from_data(b"ref_one", true).expect("should be set"),
         ])
     });
-    executor.expect_list_objects().returning(|| {
+    executor.expect_list_all_objects().returning(|| {
         Err(RemoteHelperError::Failure {
             action: "list objects".to_string(),
             details: Some("object".to_string()),
@@ -566,7 +566,7 @@ fn test_push_list_local_objects_failure() {
         .expect("failed to build runtime");
 
     let mut executor = Box::new(MockExecutor::new());
-    executor.expect_list_objects().returning(|| Ok(vec![]));
+    executor.expect_list_all_objects().returning(|| Ok(vec![]));
     executor.expect_resolve_references().returning(|_| {
         Ok(vec![
             Hash::from_data(b"ref_one", true).expect("should be set"),
@@ -600,7 +600,7 @@ fn test_push_get_object_failure() {
         .expect("failed to build runtime");
 
     let mut executor = Box::new(MockExecutor::new());
-    executor.expect_list_objects().returning(|| Ok(vec![]));
+    executor.expect_list_all_objects().returning(|| Ok(vec![]));
     executor.expect_resolve_references().returning(|_| {
         Ok(vec![
             Hash::from_data(b"ref_one", true).expect("should be set"),
@@ -639,7 +639,7 @@ fn test_push_failure() {
         .expect("failed to build runtime");
 
     let mut executor = Box::new(MockExecutor::new());
-    executor.expect_list_objects().returning(|| Ok(vec![]));
+    executor.expect_list_all_objects().returning(|| Ok(vec![]));
     executor.expect_resolve_references().returning(|_| {
         Ok(vec![
             Hash::from_data(b"ref_one", true).expect("should be set"),

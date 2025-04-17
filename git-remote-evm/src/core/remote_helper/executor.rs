@@ -31,7 +31,7 @@ pub trait Executor {
     ) -> Result<(), RemoteHelperError>;
     async fn fetch(&self, hash: Hash) -> Result<Object, RemoteHelperError>;
     async fn resolve_references(&self, names: Vec<String>) -> Result<Vec<Hash>, RemoteHelperError>;
-    async fn list_objects(&self) -> Result<Vec<Hash>, RemoteHelperError>;
+    async fn list_all_objects(&self) -> Result<Vec<Hash>, RemoteHelperError>;
 }
 
 sol!(
@@ -257,7 +257,7 @@ impl Executor for Background {
         Ok(hashes)
     }
 
-    async fn list_objects(&self) -> Result<Vec<Hash>, RemoteHelperError> {
+    async fn list_all_objects(&self) -> Result<Vec<Hash>, RemoteHelperError> {
         let response = self.contract.getObjectHashes().call().await.map_err(|e| {
             RemoteHelperError::Failure {
                 action: "listing objects".to_string(),
@@ -393,7 +393,7 @@ async fn test_list_objects() {
     let executor = setup_test_executor().await;
 
     let hashes = executor
-        .list_objects()
+        .list_all_objects()
         .await
         .expect("failed to list objects");
     assert_eq!(hashes.len(), 0);
@@ -409,7 +409,7 @@ async fn test_list_objects() {
     executor.push(objects, refs).await.expect("failed to push");
 
     let hashes = executor
-        .list_objects()
+        .list_all_objects()
         .await
         .expect("failed to list objects");
     assert_eq!(hashes.len(), 1);
