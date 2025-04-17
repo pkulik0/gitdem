@@ -20,14 +20,6 @@ impl Hash {
         matches!(self, Self::Sha256(_))
     }
 
-    pub fn empty(is_sha256: bool) -> Self {
-        if is_sha256 {
-            Self::Sha256("0".repeat(64).to_string())
-        } else {
-            Self::Sha1("0".repeat(40).to_string())
-        }
-    }
-
     pub fn padded(&self) -> String {
         // pad with trailing zeros to make it 64 characters long
         match self {
@@ -45,13 +37,6 @@ impl Hash {
             use sha1::{Digest, Sha1};
             let hash = Sha1::digest(data);
             Ok(Self::Sha1(hex::encode(hash)))
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        match self {
-            Self::Sha1(_) => self == &Hash::empty(false),
-            Self::Sha256(_) => self == &Hash::empty(true),
         }
     }
 }

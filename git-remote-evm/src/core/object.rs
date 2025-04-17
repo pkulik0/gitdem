@@ -71,7 +71,7 @@ impl Object {
             kind,
             data,
             related: related_objects,
-            hash: Hash::empty(is_sha256),
+            hash: Hash::Sha256("placeholder; will be overwritten".to_string()),
         };
 
         let data = object.serialize();

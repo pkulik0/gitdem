@@ -24,7 +24,6 @@ impl std::fmt::Display for GitVersion {
 #[automock]
 pub trait Git {
     fn version(&self) -> Result<GitVersion, RemoteHelperError>;
-    fn is_sha256(&self) -> Result<bool, RemoteHelperError>;
     fn resolve_reference(&self, name: &str) -> Result<Hash, RemoteHelperError>;
     fn get_object(&self, hash: Hash) -> Result<Object, RemoteHelperError>;
     fn save_object(&self, object: Object) -> Result<(), RemoteHelperError>;
@@ -145,38 +144,6 @@ impl Git for SystemGit {
         };
         trace!("retrieved git version: {}", version);
         Ok(version)
-    }
-
-    fn is_sha256(&self) -> Result<bool, RemoteHelperError> {
-        trace!(
-            "checking if git is using sha256 in {}",
-            self.path.to_string_lossy()
-        );
-        let output = Command::new("git")
-            .current_dir(self.path.as_path())
-            .env_remove("GIT_DIR")
-            .args(&["rev-parse", "--show-object-format"])
-            .output()
-            .map_err(|e| RemoteHelperError::Failure {
-                action: "getting git config".to_string(),
-                details: Some(e.to_string()),
-            })?;
-        let stdout = String::from_utf8(output.stdout).map_err(|e| RemoteHelperError::Failure {
-            action: "reading stdout of git config".to_string(),
-            details: Some(e.to_string()),
-        })?;
-        let is_sha256 = match stdout.trim() {
-            "sha256" => true,
-            "sha1" => false,
-            _ => {
-                return Err(RemoteHelperError::Invalid {
-                    what: "git object format".to_string(),
-                    value: stdout.to_string(),
-                });
-            }
-        };
-        debug!("git is using sha256: {}", is_sha256);
-        Ok(is_sha256)
     }
 
     fn get_address(
@@ -610,17 +577,4 @@ fn test_get_version() {
     let git = SystemGit::new(repo_dir.path().to_path_buf());
     let version = git.version().expect("failed to get version");
     assert!(version.major >= 1);
-}
-
-#[test]
-fn test_is_sha256() {
-    let repo_dir = setup_git_repo(true);
-    let git = SystemGit::new(repo_dir.path().to_path_buf());
-    let is_sha256 = git.is_sha256().expect("failed to get is_sha256");
-    assert!(is_sha256);
-
-    let repo_dir = setup_git_repo(false);
-    let git = SystemGit::new(repo_dir.path().to_path_buf());
-    let is_sha256 = git.is_sha256().expect("failed to get is_sha256");
-    assert!(!is_sha256);
 }
