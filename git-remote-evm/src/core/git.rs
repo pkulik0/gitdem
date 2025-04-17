@@ -28,11 +28,6 @@ pub trait Git {
     fn resolve_reference(&self, name: &str) -> Result<Hash, RemoteHelperError>;
     fn get_object(&self, hash: Hash) -> Result<Object, RemoteHelperError>;
     fn save_object(&self, object: Object) -> Result<(), RemoteHelperError>;
-    fn list_missing_objects(
-        &self,
-        local: Hash,
-        remote: Hash,
-    ) -> Result<Vec<Hash>, RemoteHelperError>;
     fn list_objects(&self, hash: Hash) -> Result<Vec<Hash>, RemoteHelperError>;
     fn get_address(&self, protocol: &str, remote_name: &str)
     -> Result<[u8; 20], RemoteHelperError>;
@@ -401,22 +396,6 @@ impl Git for SystemGit {
         Ok(())
     }
 
-    fn list_missing_objects(
-        &self,
-        local: Hash,
-        remote: Hash,
-    ) -> Result<Vec<Hash>, RemoteHelperError> {
-        let range = format!("{}..{}", remote, local);
-        trace!(
-            "listing missing objects: {} in {}",
-            range,
-            self.path.to_string_lossy()
-        );
-        let hashes = self.rev_list(&range)?;
-        debug!("got missing objects: {:?}", hashes);
-        Ok(hashes)
-    }
-
     fn list_objects(&self, hash: Hash) -> Result<Vec<Hash>, RemoteHelperError> {
         trace!(
             "listing objects: {} in {}",
@@ -574,55 +553,6 @@ fn test_get_object() {
         .expect("failed to get blob object");
     assert_eq!(blob1.get_kind(), &ObjectKind::Blob);
     assert_eq!(blob1.get_data(), blob1_content);
-}
-
-#[test]
-fn test_list_missing_objects() {
-    let repo_dir = setup_git_repo(true);
-
-    let mut file =
-        std::fs::File::create(repo_dir.path().join("abc")).expect("failed to create abc file");
-    file.write_all(b"example").expect("failed to write abc");
-
-    let cmd = Command::new("git")
-        .current_dir(repo_dir.path())
-        .args(&["add", "abc"])
-        .output()
-        .expect("failed to run git add");
-    if !cmd.status.success() {
-        panic!("git add failed: {}", String::from_utf8_lossy(&cmd.stderr));
-    }
-    let cmd = Command::new("git")
-        .current_dir(repo_dir.path())
-        .args(&["commit", "-m", "first commit"])
-        .output()
-        .expect("failed to run git hash-object");
-    if !cmd.status.success() {
-        panic!(
-            "git commit failed: {}",
-            String::from_utf8_lossy(&cmd.stderr)
-        );
-    }
-    let hash_before = get_head_hash(&repo_dir);
-
-    file.write_all(b"example2").expect("failed to write abc");
-    let cmd = Command::new("git")
-        .current_dir(repo_dir.path())
-        .args(&["commit", "-am", "second commit"])
-        .output()
-        .expect("failed to run git add");
-    if !cmd.status.success() {
-        panic!("git add failed: {}", String::from_utf8_lossy(&cmd.stderr));
-    }
-    let hash_after = get_head_hash(&repo_dir);
-
-    let git = SystemGit::new(repo_dir.path().to_path_buf());
-    let missing = git
-        .list_missing_objects(hash_after.clone(), hash_before)
-        .expect("failed to get missing objects");
-
-    assert_eq!(missing.len(), 3); // blob, tree, commit
-    assert!(missing.contains(&hash_after));
 }
 
 #[test]
