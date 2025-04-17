@@ -29,6 +29,7 @@ pub trait Git {
     fn get_object(&self, hash: Hash) -> Result<Object, RemoteHelperError>;
     fn save_object(&self, object: Object) -> Result<(), RemoteHelperError>;
     fn list_objects(&self, hash: Hash) -> Result<Vec<Hash>, RemoteHelperError>;
+    fn list_all_objects(&self) -> Result<Vec<Hash>, RemoteHelperError>;
     fn get_address(&self, protocol: &str, remote_name: &str)
     -> Result<[u8; 20], RemoteHelperError>;
 }
@@ -403,6 +404,13 @@ impl Git for SystemGit {
             self.path.to_string_lossy()
         );
         let hashes = self.rev_list(&hash.to_string())?;
+        debug!("got objects: {:?}", hashes);
+        Ok(hashes)
+    }
+
+    fn list_all_objects(&self) -> Result<Vec<Hash>, RemoteHelperError> {
+        trace!("listing all objects in {}", self.path.to_string_lossy());
+        let hashes = self.rev_list("--all")?;
         debug!("got objects: {:?}", hashes);
         Ok(hashes)
     }

@@ -45,18 +45,36 @@ impl RemoteHelper for Evm {
     }
 
     fn fetch(&self, fetches: Vec<Fetch>) -> Result<(), RemoteHelperError> {
-        print_user!("fetching {} references", fetches.len());
+        print_user!(
+            "fetching {} reference{}",
+            fetches.len(),
+            if fetches.len() == 1 { "" } else { "s" }
+        );
+
+        let existing_objects = self.git.list_all_objects()?;
+
         let mut to_fetch: Vec<Hash> = fetches.into_iter().map(|f| f.hash).collect();
         let mut processed = HashSet::new();
+
         while let Some(hash) = to_fetch.pop() {
+            if existing_objects.contains(&hash) {
+                continue;
+            }
             if !processed.insert(hash.clone()) {
                 continue;
             }
+
             let object = self.runtime.block_on(self.executor.fetch(hash))?;
             to_fetch.extend(object.get_related().iter().cloned());
+
             self.git.save_object(object)?;
         }
-        print_user!("got {} new objects", processed.len());
+
+        print_user!(
+            "got {} new object{}",
+            processed.len(),
+            if processed.len() == 1 { "" } else { "s" }
+        );
         Ok(())
     }
 
@@ -119,10 +137,7 @@ impl RemoteHelper for Evm {
                 references.len(),
                 if references.len() == 1 { "" } else { "s" },
             );
-            debug!(
-                "objects: {:?}, references: {:?}",
-                objects, references
-            );
+            debug!("objects: {:?}, references: {:?}", objects, references);
             self.executor
                 .push(objects.into_iter().collect(), references)
                 .await
@@ -209,6 +224,7 @@ fn test_fetch_one() {
         .enable_all()
         .build()
         .expect("failed to build runtime");
+
     let mut executor = Box::new(MockExecutor::new());
     let object = Object::new(ObjectKind::Blob, b"1234567890".to_vec(), true)
         .expect("failed to create object");
@@ -216,10 +232,13 @@ fn test_fetch_one() {
     executor
         .expect_fetch()
         .returning(move |_| Ok(object_clone.clone()));
+
     let mut git = Box::new(MockGit::new());
+    git.expect_list_all_objects().returning(|| Ok(vec![]));
     git.expect_save_object()
         .with(eq(object.clone()))
         .returning(|_| Ok(()));
+
     let evm = Evm::new(runtime, executor, git).expect("should be set");
     evm.fetch(vec![Fetch {
         hash: object.get_hash().clone(),
@@ -242,6 +261,7 @@ fn test_fetch_multiple() {
         .enable_all()
         .build()
         .expect("failed to build runtime");
+
     let mut executor = Box::new(MockExecutor::new());
     let object_blob_clone = object_blob.clone();
     let object_tree_clone = object_tree.clone();
@@ -256,6 +276,7 @@ fn test_fetch_multiple() {
 
     let mut git = Box::new(MockGit::new());
     let object_tree_clone = object_tree.clone();
+    git.expect_list_all_objects().returning(|| Ok(vec![]));
     git.expect_save_object()
         .with(eq(object_tree_clone.clone()))
         .returning(|_| Ok(()));
@@ -273,18 +294,47 @@ fn test_fetch_multiple() {
 }
 
 #[test]
+fn test_fetch_already_exists() {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build runtime");
+
+    let hash = Hash::from_data(b"1234567890", true).expect("should be set");
+
+    let executor = Box::new(MockExecutor::new());
+
+    let mut git = Box::new(MockGit::new());
+    let hash_clone = hash.clone();
+    git.expect_list_all_objects()
+        .returning(move || Ok(vec![hash_clone.clone()]));
+
+    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    evm.fetch(vec![Fetch {
+        hash,
+        name: "refs/heads/main".to_string(),
+    }])
+    .expect("should succeed");
+}
+
+#[test]
 fn test_fetch_missing() {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .expect("failed to build runtime");
+
     let mut executor = Box::new(MockExecutor::new());
     executor.expect_fetch().returning(|_| {
         Err(RemoteHelperError::Missing {
             what: "object".to_string(),
         })
     });
-    let evm = Evm::new(runtime, executor, Box::new(MockGit::new())).expect("should be set");
+
+    let mut git = Box::new(MockGit::new());
+    git.expect_list_all_objects().returning(|| Ok(vec![]));
+
+    let evm = Evm::new(runtime, executor, git).expect("should be set");
     let hash = Hash::from_data(b"1234567890", true).expect("should be set");
     evm.fetch(vec![Fetch {
         hash,
@@ -308,7 +358,10 @@ fn test_fetch_failure() {
         })
     });
 
-    let evm = Evm::new(runtime, executor, Box::new(MockGit::new())).expect("should be set");
+    let mut git = Box::new(MockGit::new());
+    git.expect_list_all_objects().returning(|| Ok(vec![]));
+
+    let evm = Evm::new(runtime, executor, git).expect("should be set");
     evm.fetch(vec![Fetch {
         hash: Hash::from_data(b"1234567890", true).expect("should be set"),
         name: "refs/heads/main".to_string(),
@@ -322,6 +375,7 @@ fn test_fetch_save_failure() {
         .enable_all()
         .build()
         .expect("failed to build runtime");
+
     let mut executor = Box::new(MockExecutor::new());
     let object =
         Object::new(ObjectKind::Blob, b"abcdef".to_vec(), true).expect("failed to create object");
@@ -329,7 +383,9 @@ fn test_fetch_save_failure() {
     executor
         .expect_fetch()
         .returning(move |_| Ok(object_clone.clone()));
+
     let mut git = Box::new(MockGit::new());
+    git.expect_list_all_objects().returning(|| Ok(vec![]));
     git.expect_save_object()
         .with(eq(object.clone()))
         .returning(|_| {
@@ -338,6 +394,7 @@ fn test_fetch_save_failure() {
                 details: Some("object".to_string()),
             })
         });
+
     let evm = Evm::new(runtime, executor, git).expect("should be set");
     evm.fetch(vec![Fetch {
         hash: object.get_hash().clone(),
