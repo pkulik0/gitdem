@@ -7,7 +7,7 @@ use crate::core::{
     remote_helper::{config::Wallet, error::RemoteHelperError},
 };
 use GitRepository::{Object as ContractObject, PushData, RefNormal};
-use alloy::network::EthereumWallet;
+use alloy::network::{AnyNetwork, EthereumWallet};
 use alloy::primitives::{Bytes, FixedBytes};
 use alloy::providers::fillers::{
     BlobGasFiller, ChainIdFiller, FillProvider, GasFiller, JoinFill, NonceFiller, WalletFiller,
@@ -49,11 +49,12 @@ type Provider = FillProvider<
         >,
         WalletFiller<EthereumWallet>,
     >,
-    RootProvider,
+    RootProvider<AnyNetwork>,
+    AnyNetwork,
 >;
 
 pub struct Background {
-    contract: GitRepository::GitRepositoryInstance<(), Provider>,
+    contract: GitRepository::GitRepositoryInstance<(), Provider, AnyNetwork>,
 }
 
 impl Background {
@@ -95,6 +96,7 @@ impl Background {
         let wallet = EthereumWallet::from(signer);
 
         let provider = ProviderBuilder::new()
+            .network::<AnyNetwork>()
             .wallet(wallet)
             .connect(rpc)
             .await
@@ -103,9 +105,9 @@ impl Background {
                 details: Some(e.to_string()),
             })?;
 
-        Ok(Self {
-            contract: GitRepository::new(address.into(), provider),
-        })
+        let contract = GitRepository::new(address.into(), provider);
+
+        Ok(Self { contract })
     }
 }
 
@@ -322,10 +324,7 @@ async fn test_push() {
         name: "refs/heads/main".to_string(),
         hash: hash.clone(),
     }];
-    executor
-        .push(objects, refs)
-        .await
-        .expect("failed to push");
+    executor.push(objects, refs).await.expect("failed to push");
 
     let refs = executor.list().await.expect("failed to list references");
     let expected = vec![
@@ -357,10 +356,7 @@ async fn test_fetch() {
         name: "refs/heads/main".to_string(),
         hash: hash.clone(),
     }];
-    executor
-        .push(objects, refs)
-        .await
-        .expect("failed to push");
+    executor.push(objects, refs).await.expect("failed to push");
 
     let fetched_object = executor
         .fetch(hash.clone())
@@ -382,10 +378,7 @@ async fn test_get_references() {
         name: ref_name.clone(),
         hash: hash.clone(),
     }];
-    executor
-        .push(objects, refs)
-        .await
-        .expect("failed to push");
+    executor.push(objects, refs).await.expect("failed to push");
 
     let refs = executor
         .resolve_references(vec![ref_name.clone()])
@@ -413,10 +406,7 @@ async fn test_list_objects() {
         name: "refs/heads/main".to_string(),
         hash: hash.clone(),
     }];
-    executor
-        .push(objects, refs)
-        .await
-        .expect("failed to push");
+    executor.push(objects, refs).await.expect("failed to push");
 
     let hashes = executor
         .list_objects()
