@@ -30,7 +30,6 @@ pub struct CLI<'a> {
 
     stdin: &'a mut dyn BufRead,
     stdout: &'a mut dyn Write,
-    stderr: &'a mut dyn Write,
 
     state: State,
 }
@@ -40,13 +39,11 @@ impl<'a> CLI<'a> {
         remote_helper: Box<dyn RemoteHelper>,
         stdin: &'a mut dyn BufRead,
         stdout: &'a mut dyn Write,
-        stderr: &'a mut dyn Write,
     ) -> Self {
         Self {
             remote_helper,
             stdin,
             stdout,
-            stderr,
             state: State::None,
         }
     }
@@ -70,7 +67,12 @@ impl<'a> CLI<'a> {
                     writeln!(self.stdout, "ok {}", reference.remote)?;
                 }
                 Err(e) => {
-                    writeln!(self.stdout, "error {} {:?}", reference.remote, e.to_string())?;
+                    writeln!(
+                        self.stdout,
+                        "error {} {:?}",
+                        reference.remote,
+                        e.to_string()
+                    )?;
                 }
             }
         }
@@ -80,9 +82,9 @@ impl<'a> CLI<'a> {
             Ok(_) => {
                 info!("push complete");
                 Ok(())
-            },
+            }
             Err(e) => Err(e.into()),
-        }
+        };
     }
 
     fn handle_line(&mut self, line: String) -> Result<(), CLIError> {
@@ -217,22 +219,15 @@ impl<'a> CLI<'a> {
 fn test_capabilities() {
     let mut stdin = BufReader::new(Cursor::new(b"capabilities\n\n".to_vec()));
     let mut stdout = Vec::new();
-    let mut stderr = Vec::new();
 
     let mut remote_helper = MockRemoteHelper::new();
     remote_helper
         .expect_capabilities()
         .returning(|| vec!["*fetch", "*push"]);
-    let mut cli = CLI::new(
-        Box::new(remote_helper),
-        &mut stdin,
-        &mut stdout,
-        &mut stderr,
-    );
+    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout);
 
     cli.run().expect("failed to run cli");
     assert_eq!(stdout, b"*fetch\n*push\n\n");
-    assert_eq!(stderr, b"");
 }
 
 #[test]
@@ -240,26 +235,18 @@ fn test_list() {
     // Case 1: No refs
     let mut stdin = BufReader::new(Cursor::new(b"list\n\n".to_vec()));
     let mut stdout = Vec::new();
-    let mut stderr = Vec::new();
 
     let mut remote_helper = MockRemoteHelper::new();
     remote_helper
         .expect_list()
         .returning(|_is_for_push| Ok(vec![]));
-    let mut cli = CLI::new(
-        Box::new(remote_helper),
-        &mut stdin,
-        &mut stdout,
-        &mut stderr,
-    );
+    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout);
     cli.run().expect("failed to run cli");
     assert_eq!(stdout, b"\n"); // new line indicates the end of the list
-    assert_eq!(stderr, b"");
 
     // Case 2: Some refs
     let mut stdin = BufReader::new(Cursor::new(b"list\n\n".to_vec()));
     let mut stdout = Vec::new();
-    let mut stderr = Vec::new();
 
     use crate::core::reference::Reference;
     let refs = vec![
@@ -283,16 +270,10 @@ fn test_list() {
     remote_helper
         .expect_list()
         .returning(move |_is_for_push| Ok(refs_clone.clone()));
-    let mut cli = CLI::new(
-        Box::new(remote_helper),
-        &mut stdin,
-        &mut stdout,
-        &mut stderr,
-    );
+    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout);
     cli.run().expect("failed to run cli");
     assert_eq!(
         stdout,
         format!("{}\n{}\n{}\n\n", refs[0], refs[1], refs[2]).as_bytes()
     );
-    assert_eq!(stderr, b"");
 }

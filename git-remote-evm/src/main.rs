@@ -106,10 +106,6 @@ fn main() {
         std::thread::sleep(std::time::Duration::from_secs(10));
     }
 
-    let mut stdin = io::stdin().lock();
-    let mut stdout = io::stdout();
-    let mut stderr = io::stderr();
-
     let git_dir_var = std::env::var(GIT_DIR_ENV_VAR).unwrap_or_else(|e| {
         exit_with_error("failed to get git dir", e.into());
     });
@@ -125,7 +121,10 @@ fn main() {
             .unwrap_or_else(|e| exit_with_error("failed to construct remote helper", e.into())),
     );
 
-    let mut cli = CLI::new(remote_helper, &mut stdin, &mut stdout, &mut stderr);
+    let mut stdin = io::stdin().lock();
+    let mut stdout = io::stdout();
+
+    let mut cli = CLI::new(remote_helper, &mut stdin, &mut stdout);
     cli.run()
         .unwrap_or_else(|e| exit_with_error("failed to run cli", e.into()));
 }
