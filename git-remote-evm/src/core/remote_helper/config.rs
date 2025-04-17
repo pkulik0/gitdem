@@ -42,10 +42,6 @@ pub struct Config {
 }
 
 impl Config {
-    fn to_key(&self, key: &str) -> String {
-        format!("{}.{}.{}", CONFIG_PREFIX, self.protocol, key)
-    }
-
     pub fn new(protocol: String, kv_sources: Vec<Rc<dyn KeyValueSource>>) -> Self {
         Self {
             protocol,
@@ -64,7 +60,7 @@ impl Config {
     }
 
     pub fn get_rpc(&self) -> Result<String, RemoteHelperError> {
-        match self.read(self.to_key("rpc").as_str())? {
+        match self.read(format!("{}.{}.rpc", CONFIG_PREFIX, self.protocol).as_str())? {
             Some(rpc) => match RPC_REGEX.is_match(&rpc) {
                 true => Ok(rpc),
                 false => Err(RemoteHelperError::Invalid {
@@ -82,10 +78,10 @@ impl Config {
     }
 
     pub fn get_wallet(&self) -> Result<Wallet, RemoteHelperError> {
-        let value = self.read(self.to_key("wallet").as_str())?;
+        let value = self.read(format!("{}.wallet", CONFIG_PREFIX).as_str())?;
         match value {
             Some(wallet_type) => match wallet_type.as_str() {
-                "keypair" => match self.read(self.to_key("keypair").as_str())? {
+                "keypair" => match self.read(format!("{}.keypair", CONFIG_PREFIX).as_str())? {
                     Some(keypair_path) => Ok(Wallet::Keypair(PathBuf::from(keypair_path))),
                     None => Err(RemoteHelperError::Missing {
                         what: "keypair path".to_string(),
@@ -180,7 +176,7 @@ fn test_wallet() {
     let mut mock_config = MockKeyValueSource::new();
     mock_config
         .expect_read()
-        .with(eq(format!("{}.{}.wallet", CONFIG_PREFIX, protocol)))
+        .with(eq(format!("{}.wallet", CONFIG_PREFIX)))
         .return_const(Ok(None));
     let kv_source = Rc::new(mock_config);
     let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
@@ -191,7 +187,7 @@ fn test_wallet() {
     let mut mock_config = MockKeyValueSource::new();
     mock_config
         .expect_read()
-        .with(eq(format!("{}.{}.wallet", CONFIG_PREFIX, protocol)))
+        .with(eq(format!("{}.wallet", CONFIG_PREFIX)))
         .return_const(Ok(Some("browser".to_string())));
     let kv_source = Rc::new(mock_config);
     let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
@@ -202,12 +198,12 @@ fn test_wallet() {
     let mut mock_config = MockKeyValueSource::new();
     mock_config
         .expect_read()
-        .with(eq(format!("{}.{}.wallet", CONFIG_PREFIX, protocol)))
+        .with(eq(format!("{}.wallet", CONFIG_PREFIX)))
         .return_const(Ok(Some("keypair".to_string())));
     let keypair_path = "/path/to/keypair";
     mock_config
         .expect_read()
-        .with(eq(format!("{}.{}.keypair", CONFIG_PREFIX, protocol)))
+        .with(eq(format!("{}.keypair", CONFIG_PREFIX)))
         .return_const(Ok(Some(keypair_path.to_string())));
     let kv_source = Rc::new(mock_config);
     let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
@@ -218,11 +214,11 @@ fn test_wallet() {
     let mut mock_config = MockKeyValueSource::new();
     mock_config
         .expect_read()
-        .with(eq(format!("{}.{}.wallet", CONFIG_PREFIX, protocol)))
+        .with(eq(format!("{}.wallet", CONFIG_PREFIX)))
         .return_const(Ok(Some("keypair".to_string())));
     mock_config
         .expect_read()
-        .with(eq(format!("{}.{}.keypair", CONFIG_PREFIX, protocol)))
+        .with(eq(format!("{}.keypair", CONFIG_PREFIX)))
         .return_const(Ok(None));
     let kv_source = Rc::new(mock_config);
     let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
@@ -233,7 +229,7 @@ fn test_wallet() {
     let mut mock_config = MockKeyValueSource::new();
     mock_config
         .expect_read()
-        .with(eq(format!("{}.{}.wallet", CONFIG_PREFIX, protocol)))
+        .with(eq(format!("{}.wallet", CONFIG_PREFIX)))
         .return_const(Ok(Some("environment".to_string())));
     let kv_source = Rc::new(mock_config);
     let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
@@ -244,7 +240,7 @@ fn test_wallet() {
     let mut mock_config = MockKeyValueSource::new();
     mock_config
         .expect_read()
-        .with(eq(format!("{}.{}.wallet", CONFIG_PREFIX, protocol)))
+        .with(eq(format!("{}.wallet", CONFIG_PREFIX)))
         .return_const(Ok(Some("invalid".to_string())));
     let kv_source = Rc::new(mock_config);
     let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
