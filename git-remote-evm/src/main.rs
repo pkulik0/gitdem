@@ -10,6 +10,7 @@ mod macros;
 use args::Args;
 use cli::CLI;
 use core::git::Git;
+use core::kv_source::EnvSource;
 use core::remote_helper::executor::Background;
 use core::remote_helper::{error::RemoteHelperError, evm::Evm};
 use flexi_logger::{FileSpec, Logger, WriteMode};
@@ -17,6 +18,7 @@ use log::{debug, error, warn};
 use std::error::Error;
 use std::io;
 use std::path::PathBuf;
+use std::rc::Rc;
 
 // Remote helpers are run by git
 // Use this environment variable to wait for a debugger to attach
@@ -42,12 +44,10 @@ fn setup_panic_hook() {
 
 fn construct_remote_helper(args: Args) -> Result<Evm, RemoteHelperError> {
     use core::git::SystemGit;
-    use core::kv_source::GitConfigSource;
     use core::remote_helper::config::Config;
 
     debug!("using evm remote helper");
-    let kv_source = Box::new(GitConfigSource::new(args.directory().clone()));
-    let git = Box::new(SystemGit::new(args.directory().clone()));
+    let git = Rc::new(SystemGit::new(args.directory().clone()));
 
     let git_version = git.version()?;
     debug!("git version: {}", git_version);
@@ -62,7 +62,8 @@ fn construct_remote_helper(args: Args) -> Result<Evm, RemoteHelperError> {
             action: "creating runtime".to_string(),
             details: Some(e.to_string()),
         })?;
-    let config = Config::new(args.protocol().to_string(), kv_source);
+    let env_source = Rc::new(EnvSource::new());
+    let config = Config::new(args.protocol().to_string(), vec![env_source, git.clone()]);
 
     let address = if let Some(address) = args.address() {
         *address
@@ -116,15 +117,13 @@ fn main() {
         .unwrap_or_else(|e| exit_with_error("failed to collect args", e.into()));
     debug!("running with {:?}", args);
 
-    let remote_helper = Box::new(
-        construct_remote_helper(args)
-            .unwrap_or_else(|e| exit_with_error("failed to construct remote helper", e.into())),
-    );
+    let remote_helper = construct_remote_helper(args)
+        .unwrap_or_else(|e| exit_with_error("failed to construct remote helper", e.into()));
 
     let mut stdin = io::stdin().lock();
     let mut stdout = io::stdout();
 
-    let mut cli = CLI::new(remote_helper, &mut stdin, &mut stdout);
+    let mut cli = CLI::new(Box::new(remote_helper), &mut stdin, &mut stdout);
     cli.run()
         .unwrap_or_else(|e| exit_with_error("failed to run cli", e.into()));
 }

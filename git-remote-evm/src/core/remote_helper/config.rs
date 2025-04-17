@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::LazyLock;
 
 use crate::core::kv_source::KeyValueSource;
@@ -37,7 +38,7 @@ fn get_default_rpc(protocol: &str) -> Option<&str> {
 
 pub struct Config {
     protocol: String,
-    kv_source: Box<dyn KeyValueSource>,
+    kv_sources: Vec<Rc<dyn KeyValueSource>>,
 }
 
 impl Config {
@@ -45,12 +46,25 @@ impl Config {
         format!("{}.{}.{}", CONFIG_PREFIX, self.protocol, key)
     }
 
-    pub fn new(protocol: String, kv_source: Box<dyn KeyValueSource>) -> Self {
-        Self { protocol, kv_source }
+    pub fn new(protocol: String, kv_sources: Vec<Rc<dyn KeyValueSource>>) -> Self {
+        Self {
+            protocol,
+            kv_sources,
+        }
+    }
+
+    fn read(&self, key: &str) -> Result<Option<String>, RemoteHelperError> {
+        for kv_source in &self.kv_sources {
+            let value = kv_source.read(key)?;
+            if value.is_some() {
+                return Ok(value);
+            }
+        }
+        Ok(None)
     }
 
     pub fn get_rpc(&self) -> Result<String, RemoteHelperError> {
-        match self.kv_source.read(self.to_key("rpc").as_str())? {
+        match self.read(self.to_key("rpc").as_str())? {
             Some(rpc) => match RPC_REGEX.is_match(&rpc) {
                 true => Ok(rpc),
                 false => Err(RemoteHelperError::Invalid {
@@ -68,10 +82,10 @@ impl Config {
     }
 
     pub fn get_wallet(&self) -> Result<Wallet, RemoteHelperError> {
-        let value = self.kv_source.read(self.to_key("wallet").as_str())?;
+        let value = self.read(self.to_key("wallet").as_str())?;
         match value {
             Some(wallet_type) => match wallet_type.as_str() {
-                "keypair" => match self.kv_source.read(self.to_key("keypair").as_str())? {
+                "keypair" => match self.read(self.to_key("keypair").as_str())? {
                     Some(keypair_path) => Ok(Wallet::Keypair(PathBuf::from(keypair_path))),
                     None => Err(RemoteHelperError::Missing {
                         what: "keypair path".to_string(),
@@ -97,7 +111,8 @@ fn test_rpc() {
         .expect_read()
         .with(eq(format!("{}.{}.rpc", CONFIG_PREFIX, protocol)))
         .return_const(Ok(None));
-    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
+    let kv_source = Rc::new(mock_config);
+    let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
     let rpc = evm_config.get_rpc().expect("failed to get rpc");
     assert_eq!(rpc, DEFAULT_RPC_ETH);
 
@@ -107,7 +122,8 @@ fn test_rpc() {
         .expect_read()
         .with(eq(format!("{}.{}.rpc", CONFIG_PREFIX, protocol)))
         .return_const(Ok(None));
-    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
+    let kv_source = Rc::new(mock_config);
+    let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
     let rpc = evm_config.get_rpc().expect("failed to get rpc");
     assert_eq!(rpc, DEFAULT_RPC_ARB1);
 
@@ -117,7 +133,8 @@ fn test_rpc() {
         .expect_read()
         .with(eq(format!("{}.{}.rpc", CONFIG_PREFIX, protocol)))
         .return_const(Ok(None));
-    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
+    let kv_source = Rc::new(mock_config);
+    let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
     let rpc = evm_config.get_rpc().expect("failed to get rpc");
     assert_eq!(rpc, DEFAULT_RPC_AVAX);
 
@@ -127,7 +144,8 @@ fn test_rpc() {
         .expect_read()
         .with(eq(format!("{}.{}.rpc", CONFIG_PREFIX, protocol)))
         .return_const(Ok(Some(another_rpc.to_string())));
-    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
+    let kv_source = Rc::new(mock_config);
+    let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
     let rpc = evm_config.get_rpc().expect("failed to get rpc");
     assert_eq!(rpc, another_rpc);
 
@@ -136,7 +154,8 @@ fn test_rpc() {
         .expect_read()
         .with(eq(format!("{}.{}.rpc", CONFIG_PREFIX, protocol)))
         .return_const(Ok(Some("invalid-rpc".to_string())));
-    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
+    let kv_source = Rc::new(mock_config);
+    let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
     evm_config
         .get_rpc()
         .expect_err("should fail because of invalid rpc");
@@ -147,7 +166,8 @@ fn test_rpc() {
         .expect_read()
         .with(eq(format!("{}.{}.rpc", CONFIG_PREFIX, protocol)))
         .return_const(Ok(None));
-    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
+    let kv_source = Rc::new(mock_config);
+    let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
     evm_config
         .get_rpc()
         .expect_err("should fail because of unknown protocol");
@@ -162,7 +182,8 @@ fn test_wallet() {
         .expect_read()
         .with(eq(format!("{}.{}.wallet", CONFIG_PREFIX, protocol)))
         .return_const(Ok(None));
-    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
+    let kv_source = Rc::new(mock_config);
+    let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
     let wallet = evm_config.get_wallet().expect("failed to get wallet type");
     assert_eq!(wallet, Wallet::Browser);
 
@@ -172,7 +193,8 @@ fn test_wallet() {
         .expect_read()
         .with(eq(format!("{}.{}.wallet", CONFIG_PREFIX, protocol)))
         .return_const(Ok(Some("browser".to_string())));
-    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
+    let kv_source = Rc::new(mock_config);
+    let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
     let wallet_type = evm_config.get_wallet().expect("failed to get wallet type");
     assert_eq!(wallet_type, Wallet::Browser);
 
@@ -187,7 +209,8 @@ fn test_wallet() {
         .expect_read()
         .with(eq(format!("{}.{}.keypair", CONFIG_PREFIX, protocol)))
         .return_const(Ok(Some(keypair_path.to_string())));
-    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
+    let kv_source = Rc::new(mock_config);
+    let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
     let wallet_type = evm_config.get_wallet().expect("failed to get wallet type");
     assert_eq!(wallet_type, Wallet::Keypair(PathBuf::from(keypair_path)));
 
@@ -201,7 +224,8 @@ fn test_wallet() {
         .expect_read()
         .with(eq(format!("{}.{}.keypair", CONFIG_PREFIX, protocol)))
         .return_const(Ok(None));
-    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
+    let kv_source = Rc::new(mock_config);
+    let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
     evm_config.get_wallet().expect_err("should fail");
 
     // environment
@@ -211,7 +235,8 @@ fn test_wallet() {
         .expect_read()
         .with(eq(format!("{}.{}.wallet", CONFIG_PREFIX, protocol)))
         .return_const(Ok(Some("environment".to_string())));
-    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
+    let kv_source = Rc::new(mock_config);
+    let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
     let wallet_type = evm_config.get_wallet().expect("failed to get wallet type");
     assert_eq!(wallet_type, Wallet::Environment);
 
@@ -221,6 +246,55 @@ fn test_wallet() {
         .expect_read()
         .with(eq(format!("{}.{}.wallet", CONFIG_PREFIX, protocol)))
         .return_const(Ok(Some("invalid".to_string())));
-    let evm_config = Config::new(protocol.to_string(), Box::new(mock_config));
+    let kv_source = Rc::new(mock_config);
+    let evm_config = Config::new(protocol.to_string(), vec![kv_source]);
     evm_config.get_wallet().expect_err("should fail");
+}
+
+#[test]
+fn test_multiple_sources_first_returns_none() {
+    let protocol = "eth";
+    let predicate = eq(format!("{}.{}.rpc", CONFIG_PREFIX, protocol));
+
+    let mut first_source = MockKeyValueSource::new();
+    first_source
+        .expect_read()
+        .with(predicate.clone())
+        .returning(|_| Ok(None));
+
+    let mut second_source = MockKeyValueSource::new();
+    let expected_rpc = "https://some-rpc.com";
+    second_source
+        .expect_read()
+        .with(predicate)
+        .return_const(Ok(Some(expected_rpc.to_string())));
+
+    let evm_config = Config::new(
+        protocol.to_string(),
+        vec![Rc::new(first_source), Rc::new(second_source)],
+    );
+    let rpc = evm_config.get_rpc().expect("failed to get rpc");
+    assert_eq!(rpc, expected_rpc);
+}
+
+#[test]
+fn test_multiple_sources_first_returns_some() {
+    let protocol = "eth";
+    let predicate = eq(format!("{}.{}.rpc", CONFIG_PREFIX, protocol));
+
+    let mut first_source = MockKeyValueSource::new();
+    let expected_rpc = "https://some-rpc.com";
+    first_source
+        .expect_read()
+        .with(predicate)
+        .return_const(Ok(Some(expected_rpc.to_string())));
+
+    let second_source = MockKeyValueSource::new();
+
+    let evm_config = Config::new(
+        protocol.to_string(),
+        vec![Rc::new(first_source), Rc::new(second_source)],
+    );
+    let rpc = evm_config.get_rpc().expect("failed to get rpc");
+    assert_eq!(rpc, expected_rpc);
 }

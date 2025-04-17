@@ -14,18 +14,18 @@ use log::debug;
 #[cfg(test)]
 use mockall::predicate::eq;
 use std::collections::HashSet;
-
+use std::rc::Rc;
 pub struct Evm {
     runtime: tokio::runtime::Runtime,
     executor: Box<dyn Executor>,
-    git: Box<dyn Git>,
+    git: Rc<dyn Git>,
 }
 
 impl Evm {
     pub fn new(
         runtime: tokio::runtime::Runtime,
         executor: Box<dyn Executor>,
-        git: Box<dyn Git>,
+        git: Rc<dyn Git>,
     ) -> Result<Self, RemoteHelperError> {
         Ok(Self {
             runtime,
@@ -154,7 +154,7 @@ fn test_capabilities() {
     let evm = Evm::new(
         runtime,
         Box::new(MockExecutor::new()),
-        Box::new(MockGit::new()),
+        Rc::new(MockGit::new()),
     )
     .expect("should be set");
     assert_eq!(evm.capabilities(), vec!["*fetch", "*push"]);
@@ -168,7 +168,7 @@ fn test_list_empty() {
         .expect("failed to build runtime");
     let mut executor = Box::new(MockExecutor::new());
     executor.expect_list().returning(|| Ok(vec![]));
-    let evm = Evm::new(runtime, executor, Box::new(MockGit::new())).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(MockGit::new())).expect("should be set");
     let refs = evm.list(false).expect("should be set");
     assert_eq!(refs.len(), 0);
 }
@@ -195,7 +195,7 @@ fn test_list_normal() {
     executor
         .expect_list()
         .returning(move || Ok(refs_clone.clone()));
-    let evm = Evm::new(runtime, executor, Box::new(MockGit::new())).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(MockGit::new())).expect("should be set");
     let returned_refs = evm.list(true).expect("should be set");
     assert_eq!(refs, returned_refs);
 }
@@ -214,7 +214,7 @@ fn test_list_failure() {
             details: Some("object".to_string()),
         })
     });
-    let evm = Evm::new(runtime, executor, Box::new(MockGit::new())).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(MockGit::new())).expect("should be set");
     evm.list(true).expect_err("should fail");
 }
 
@@ -233,13 +233,13 @@ fn test_fetch_one() {
         .expect_fetch()
         .returning(move |_| Ok(object_clone.clone()));
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_list_all_objects().returning(|| Ok(vec![]));
     git.expect_save_object()
         .with(eq(object.clone()))
         .returning(|_| Ok(()));
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     evm.fetch(vec![Fetch {
         hash: object.get_hash().clone(),
         name: "refs/heads/main".to_string(),
@@ -274,7 +274,7 @@ fn test_fetch_multiple() {
         .with(eq(object_tree_clone.get_hash().clone()))
         .returning(move |_| Ok(object_tree_clone.clone()));
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     let object_tree_clone = object_tree.clone();
     git.expect_list_all_objects().returning(|| Ok(vec![]));
     git.expect_save_object()
@@ -285,7 +285,7 @@ fn test_fetch_multiple() {
         .with(eq(object_blob_clone.clone()))
         .returning(|_| Ok(()));
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     evm.fetch(vec![Fetch {
         hash: object_tree.get_hash().clone(),
         name: "refs/heads/main".to_string(),
@@ -304,12 +304,12 @@ fn test_fetch_already_exists() {
 
     let executor = Box::new(MockExecutor::new());
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     let hash_clone = hash.clone();
     git.expect_list_all_objects()
         .returning(move || Ok(vec![hash_clone.clone()]));
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     evm.fetch(vec![Fetch {
         hash,
         name: "refs/heads/main".to_string(),
@@ -331,10 +331,10 @@ fn test_fetch_missing() {
         })
     });
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_list_all_objects().returning(|| Ok(vec![]));
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     let hash = Hash::from_data(b"1234567890", true).expect("should be set");
     evm.fetch(vec![Fetch {
         hash,
@@ -358,10 +358,10 @@ fn test_fetch_failure() {
         })
     });
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_list_all_objects().returning(|| Ok(vec![]));
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     evm.fetch(vec![Fetch {
         hash: Hash::from_data(b"1234567890", true).expect("should be set"),
         name: "refs/heads/main".to_string(),
@@ -384,7 +384,7 @@ fn test_fetch_save_failure() {
         .expect_fetch()
         .returning(move |_| Ok(object_clone.clone()));
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_list_all_objects().returning(|| Ok(vec![]));
     git.expect_save_object()
         .with(eq(object.clone()))
@@ -395,7 +395,7 @@ fn test_fetch_save_failure() {
             })
         });
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     evm.fetch(vec![Fetch {
         hash: object.get_hash().clone(),
         name: "refs/heads/main".to_string(),
@@ -412,7 +412,7 @@ fn test_push_empty() {
     let evm = Evm::new(
         runtime,
         Box::new(MockExecutor::new()),
-        Box::new(MockGit::new()),
+        Rc::new(MockGit::new()),
     )
     .expect("should be set");
     evm.push(vec![]).expect("should succeed");
@@ -433,12 +433,12 @@ fn test_push_up_to_date() {
         .returning(move |_| Ok(vec![hash_clone.clone()]));
     executor.expect_list_all_objects().returning(|| Ok(vec![]));
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_resolve_reference()
         .with(eq("refs/heads/main".to_string()))
         .returning(move |_| Ok(hash.clone()));
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     evm.push(vec![Push {
         local: "refs/heads/main".to_string(),
         remote: "refs/heads/main".to_string(),
@@ -478,13 +478,13 @@ fn test_push_no_new_objects() {
         )
         .returning(move |_, _| Ok(()));
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_resolve_reference()
         .returning(move |_| Ok(new_ref_hash.clone()));
     git.expect_list_objects()
         .returning(move |_| Ok(vec![object_hash.clone()]));
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     evm.push(vec![Push {
         local: "refs/heads/main".to_string(),
         remote: "refs/heads/main".to_string(),
@@ -525,7 +525,7 @@ fn test_push_new_object() {
         )
         .returning(move |_, _| Ok(()));
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_resolve_reference()
         .returning(move |_| Ok(new_ref_hash.clone()));
     let object_hash = object.get_hash().clone();
@@ -536,7 +536,7 @@ fn test_push_new_object() {
         .with(eq(object_hash.clone()))
         .returning(move |_| Ok(object.clone()));
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     evm.push(vec![Push {
         local: "refs/heads/main".to_string(),
         remote: "refs/heads/main".to_string(),
@@ -552,7 +552,7 @@ fn test_push_resolve_local_reference_failure() {
         .build()
         .expect("failed to build runtime");
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_resolve_reference().returning(move |_| {
         Err(RemoteHelperError::Failure {
             action: "resolve references".to_string(),
@@ -560,7 +560,7 @@ fn test_push_resolve_local_reference_failure() {
         })
     });
 
-    let evm = Evm::new(runtime, Box::new(MockExecutor::new()), git).expect("should be set");
+    let evm = Evm::new(runtime, Box::new(MockExecutor::new()), Rc::new(git)).expect("should be set");
     evm.push(vec![Push {
         local: "refs/heads/main".to_string(),
         remote: "refs/heads/main".to_string(),
@@ -584,11 +584,11 @@ fn test_push_resolve_remote_reference_failure() {
         })
     });
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_resolve_reference()
         .returning(|_| Hash::from_data(b"ref_one", true));
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     evm.push(vec![Push {
         local: "refs/heads/main".to_string(),
         remote: "refs/heads/main".to_string(),
@@ -617,11 +617,11 @@ fn test_push_list_remote_objects_failure() {
         })
     });
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_resolve_reference()
         .returning(|_| Hash::from_data(b"ref_two", true));
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     evm.push(vec![Push {
         local: "refs/heads/main".to_string(),
         remote: "refs/heads/main".to_string(),
@@ -645,7 +645,7 @@ fn test_push_list_local_objects_failure() {
         ])
     });
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_resolve_reference()
         .returning(|_| Hash::from_data(b"ref_two", true));
     git.expect_list_objects().returning(|_| {
@@ -655,7 +655,7 @@ fn test_push_list_local_objects_failure() {
         })
     });
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     evm.push(vec![Push {
         local: "refs/heads/main".to_string(),
         remote: "refs/heads/main".to_string(),
@@ -679,7 +679,7 @@ fn test_push_get_object_failure() {
         ])
     });
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_resolve_reference()
         .returning(|_| Hash::from_data(b"ref_two", true));
     git.expect_list_objects().returning(|_| {
@@ -694,7 +694,7 @@ fn test_push_get_object_failure() {
         })
     });
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)).expect("should be set");
     evm.push(vec![Push {
         local: "refs/heads/main".to_string(),
         remote: "refs/heads/main".to_string(),
@@ -727,7 +727,7 @@ fn test_push_failure() {
     let object =
         Object::new(ObjectKind::Blob, b"object_data".to_vec(), true).expect("should be set");
 
-    let mut git = Box::new(MockGit::new());
+    let mut git = MockGit::new();
     git.expect_resolve_reference()
         .returning(|_| Hash::from_data(b"ref_two", true));
     let object_hash = object.get_hash().clone();
@@ -736,7 +736,7 @@ fn test_push_failure() {
     git.expect_get_object()
         .returning(move |_| Ok(object.clone()));
 
-    let evm = Evm::new(runtime, executor, git).expect("should be set");
+    let evm = Evm::new(runtime, executor, Rc::new(git)  ).expect("should be set");
     evm.push(vec![Push {
         local: "refs/heads/main".to_string(),
         remote: "refs/heads/main".to_string(),

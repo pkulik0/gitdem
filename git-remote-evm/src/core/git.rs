@@ -1,3 +1,4 @@
+use super::kv_source::KeyValueSource;
 use super::remote_helper::error::RemoteHelperError;
 use crate::core::hash::Hash;
 use crate::core::object::{Object, ObjectKind};
@@ -31,8 +32,16 @@ pub trait Git {
     fn list_all_objects(&self) -> Result<Vec<Hash>, RemoteHelperError>;
     fn get_address(&self, protocol: &str, remote_name: &str)
     -> Result<[u8; 20], RemoteHelperError>;
+    fn get_config(&self, key: &str) -> Result<Option<String>, RemoteHelperError>;
 }
 
+impl<T: Git> KeyValueSource for T {
+    fn read(&self, key: &str) -> Result<Option<String>, RemoteHelperError> {
+        self.get_config(key)
+    }
+}
+
+#[derive(Clone)]
 pub struct SystemGit {
     path: PathBuf,
 }
@@ -381,6 +390,36 @@ impl Git for SystemGit {
         debug!("got objects: {:?}", hashes);
         Ok(hashes)
     }
+
+    fn get_config(&self, key: &str) -> Result<Option<String>, RemoteHelperError> {
+        let output = Command::new("git")
+            .current_dir(self.path.as_path())
+            .env_remove("GIT_DIR")
+            .args(&["config", "--get", key])
+            .output()
+            .map_err(|e| RemoteHelperError::Failure {
+                action: "getting config value".to_string(),
+                details: Some(e.to_string()),
+            })?;
+        if !output.status.success() {
+            return Err(RemoteHelperError::Failure {
+                action: "getting config value".to_string(),
+                details: Some(String::from_utf8_lossy(&output.stderr).to_string()),
+            });
+        }
+
+        let stdout = String::from_utf8(output.stdout).map_err(|e| RemoteHelperError::Failure {
+            action: "reading stdout of git config".to_string(),
+            details: Some(e.to_string()),
+        })?;
+
+        let value = stdout.trim();
+        if value.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(value.to_string()))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -577,4 +616,56 @@ fn test_get_version() {
     let git = SystemGit::new(repo_dir.path().to_path_buf());
     let version = git.version().expect("failed to get version");
     assert!(version.major >= 1);
+}
+
+#[test]
+fn test_read_config() {
+    let repo_dir = tempfile::tempdir().expect("failed to create temp dir");
+    let cmd = Command::new("git")
+        .arg("init")
+        .current_dir(repo_dir.path().to_path_buf())
+        .output()
+        .expect("failed to run git init");
+    if !cmd.status.success() {
+        panic!("git init failed: {}", String::from_utf8_lossy(&cmd.stderr));
+    }
+
+    let key = "some.key";
+    let value = "123456";
+    let git = SystemGit::new(repo_dir.path().to_path_buf());
+
+    let cmd = Command::new("git")
+        .arg("config")
+        .arg(key)
+        .arg(value)
+        .current_dir(repo_dir.path())
+        .output()
+        .expect("failed to run git config");
+    if !cmd.status.success() {
+        panic!(
+            "git config failed: {}",
+            String::from_utf8_lossy(&cmd.stderr)
+        );
+    }
+    let read_value = git
+        .get_config(key)
+        .expect("failed to read config")
+        .expect("doesn't have value");
+    assert_eq!(read_value, value.to_string());
+
+    let cmd = Command::new("git")
+        .arg("config")
+        .arg("--unset")
+        .arg(key)
+        .current_dir(repo_dir.path())
+        .output()
+        .expect("failed to run git config");
+    if !cmd.status.success() {
+        panic!(
+            "git config failed: {}",
+            String::from_utf8_lossy(&cmd.stderr)
+        );
+    }
+    let read_value = git.get_config(key).expect("failed to read config");
+    assert!(read_value.is_none());
 }
