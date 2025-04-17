@@ -398,14 +398,11 @@ impl Git for SystemGit {
             .args(&["config", "--get", key])
             .output()
             .map_err(|e| RemoteHelperError::Failure {
-                action: "getting config value".to_string(),
+                action: "running git config".to_string(),
                 details: Some(e.to_string()),
             })?;
         if !output.status.success() {
-            return Err(RemoteHelperError::Failure {
-                action: "getting config value".to_string(),
-                details: Some(String::from_utf8_lossy(&output.stderr).to_string()),
-            });
+            return Ok(None);
         }
 
         let stdout = String::from_utf8(output.stdout).map_err(|e| RemoteHelperError::Failure {
