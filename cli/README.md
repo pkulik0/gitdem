@@ -1,3 +1,0 @@
-# GitDem CLI
-
-**WIP**
